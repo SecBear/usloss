@@ -24,8 +24,9 @@ static void check_deadlock();
 /* Patrick's debugging global variable... */
 int debugflag = 1;
 
+// FIRST TODO: EXAMINE THIS - the master list of all the processes that are active - any process could be ready, blocking, running
 /* the process table */
-proc_struct ProcTable[MAXPROC];
+proc_struct ProcTable[MAXPROC];  // Just an array that can hold 50 processes
 
 /* Process lists  */
 
@@ -59,7 +60,9 @@ void startup()
 
    /* Initialize the clock interrupt handler */
 
-   /* startup a sentinel process */
+   /* startup a sentinel process - the background process that runs when nobody else is ready to run. The wait room if you will (busy wait). 
+      we have to have this process so that we can switch control back to it from another process that terminates, is waiting for i/o, etc. 
+      lowest priority process. */
    if (DEBUG && debugflag)
        console("startup(): calling fork1() for sentinel\n");
    result = fork1("sentinel", sentinel, NULL, USLOSS_MIN_STACK,
@@ -70,10 +73,10 @@ void startup()
       halt(1);
    }
   
-   /* start the test process */
+   /* start the test process - start1 - Make sure you're able to launch the start1 program. - start1 is the entry point for all testcases */
    if (DEBUG && debugflag)
       console("startup(): calling fork1() for start1\n");
-   result = fork1("start1", start1, NULL, 2 * USLOSS_MIN_STACK, 1);
+   result = fork1("start1", start1, NULL, 2 * USLOSS_MIN_STACK, 1); // highest priority process (1)
    if (result < 0) {
       console("startup(): fork1 for start1 returned an error, halting...\n");
       halt(1);
@@ -109,6 +112,8 @@ void finish()
              be created or if priority is not between max and min priority.
    Side Effects - ReadyList is changed, ProcTable is changed, Current
                   process information changed
+
+         Put the process in the process table and invoke the context switch
    ------------------------------------------------------------------------ */
 int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 {
@@ -128,8 +133,8 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): Process name is too long.  Halting...\n");
       halt(1);
    }
-   strcpy(ProcTable[proc_slot].name, name);
-   ProcTable[proc_slot].start_func = f;
+   strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry
+   ProcTable[proc_slot].start_func = f;      // Start the function for the process
    if ( arg == NULL )
       ProcTable[proc_slot].start_arg[0] = '\0';
    else if ( strlen(arg) >= (MAXARG - 1) ) {
@@ -144,10 +149,16 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
     */
    context_init(&(ProcTable[proc_slot].state), psr_get(),
                 ProcTable[proc_slot].stack, 
-                ProcTable[proc_slot].stacksize, launch);
+                ProcTable[proc_slot].stacksize, launch);       // MUST be done, before you can switch process contexts
 
    /* for future phase(s) */
    p1_fork(ProcTable[proc_slot].pid);
+
+   // TODO: dispatcher
+   /* call dispatcher dispatcher(); which will transition the processing
+    * to whichever process needs to run next based on the scheduling algorithm 
+    */
+   dispatcher(); // "when to call dispatcher? there's one nuance here but I want you to think about it before I give you the answer"
 
 } /* fork1 */
 
@@ -254,7 +265,7 @@ int sentinel (void * dummy)
 {
    if (DEBUG && debugflag)
       console("sentinel(): called\n");
-   while (1)
+   while (1) // forever loop
    {
       check_deadlock();
       waitint();
