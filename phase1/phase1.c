@@ -133,15 +133,15 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): Process name is too long.  Halting...\n");
       halt(1);
    }
-   strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry
-   ProcTable[proc_slot].start_func = f;      // Start the function for the process
-   if ( arg == NULL )
-      ProcTable[proc_slot].start_arg[0] = '\0';
-   else if ( strlen(arg) >= (MAXARG - 1) ) {
+   strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry (proc_struct in kernel.h)
+   ProcTable[proc_slot].start_func = f;      // Start the function for the process, assign output to f
+   if ( arg == NULL )                        // Check if arguments need to be passed
+      ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
+   else if ( strlen(arg) >= (MAXARG - 1) ) {    // Checks to see if it's argument is too long
       console("fork1(): argument too long.  Halting...\n");
       halt(1);
    }
-   else
+   else                                      // Put the argument address (arg) into the process entry's start_arg element
       strcpy(ProcTable[proc_slot].start_arg, arg);
 
    /* Initialize context for this process, but use launch function pointer for
