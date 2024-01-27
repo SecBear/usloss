@@ -52,6 +52,10 @@ void startup()
    int result; /* value returned by call to fork1() */
 
    /* initialize the process table */
+   for (int i = 0; i < MAXPROC; i++) {
+      ProcTable[i].status = UNUSED;   //marking each entry as unused
+      ProcTable[i].pid = UNUSED;      //Using same constant to mark PID as unused
+   }
 
    /* Initialize the Ready list, etc. */
    if (DEBUG && debugflag)
@@ -123,11 +127,38 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): creating process %s\n", name);
 
    /* test if in kernel mode; halt if in user mode */
-
+   if ((psr_get() & PSR_CURRENT_MODE) == 0) {
+      console("fork1(): not in kernel mode, halting...\n");
+      halt(1);
+   }
    /* Return if stack size is too small */
+   if (stacksize < USLOSS_MIN_STACK) {
+      console("fork1(): stack size is too small, returning -2\n");
+      return -2;
+   }
 
+   if (priority < MAXPRIORITY || priority > MINPRIORITY) {
+      console("fork1(): priority out of range, returning -1\n");
+      return -1;
+   }
+
+   if (f == NULL || name == NULL) {
+      console("fork1(): function or name is NULL, returning -1\n");
+      return -1;
+   }
    /* find an empty slot in the process table */
-
+   proc_slot = -1;
+   for (int i = 0; i < MAXPROC; i++) {
+        if (ProcTable[i].status == UNUSED) {
+         proc_slot = i;
+         break;
+        }
+   }
+   
+   if (proc_slot == -1) {
+      console("fork1(): no empty slot available in the process table, returning -1\n");
+      return -1;
+   }
    /* fill-in entry in process table */
    if ( strlen(name) >= (MAXNAME - 1) ) {
       console("fork1(): Process name is too long.  Halting...\n");
@@ -144,10 +175,19 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    else                                      // Put the argument address (arg) into the process entry's start_arg element
       strcpy(ProcTable[proc_slot].start_arg, arg);
 
-   /* Initialize context for this process, but use launch function pointer for
-    * the initial value of the process's program counter (PC)
-    */
-   context_init(&(ProcTable[proc_slot].state), psr_get(),
+   // Allocates stack space for the new process
+ProcTable[proc_slot].stack = (char *) malloc(stacksize);
+if (ProcTable[proc_slot].stack == NULL) {
+    console("fork1(): Stack allocation failed, returning -1\n");
+    return -1;  // make sure to handle allocation failure
+}
+
+// Sets stack size and initial process status
+ProcTable[proc_slot].stacksize = stacksize;
+ProcTable[proc_slot].status = READY;  // Set the process status to READY
+   
+// Initialize context for this process with the 'launch' function as the entry point
+context_init(&(ProcTable[proc_slot].state), psr_get(),
                 ProcTable[proc_slot].stack, 
                 ProcTable[proc_slot].stacksize, launch);       // MUST be done, before you can switch process contexts
 
