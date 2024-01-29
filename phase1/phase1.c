@@ -136,8 +136,9 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): stack size is too small, returning -2\n");
       return -2;
    }
-
-   if (priority < MAXPRIORITY || priority > MINPRIORITY) {
+   
+   /* Check if Priority is out of range, Process priority 6 must have name "sentinel" */ 
+   if (priority < MAXPRIORITY || (priority > MINPRIORITY && strcmp(name, "sentinel") != 0) ) {
       console("fork1(): priority out of range, returning -1\n");
       return -1;
    }
