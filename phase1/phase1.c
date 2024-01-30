@@ -286,6 +286,10 @@ void dispatcher(void)
 {
    proc_ptr next_process;
 
+   // TODO: find the next process to run
+
+   // TODO: swap in the new process and out the old process
+
    p1_switch(Current->pid, next_process->pid);
 } /* dispatcher */
 
