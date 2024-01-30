@@ -406,10 +406,14 @@ proc_ptr GetNextReadyProc()
 void dispatcher(void)
 {
    proc_ptr next_process;
-   void *pPrevContext=NULL;
+   void *pPrevContext;   
 
-   // TODO: find the next process to run
+// TODO figure out: p1_switch(Current->pid, next_process->pid);
+
+   // find the next process to run
    next_process = GetNextReadyProc();
+
+   //TODO: Set the pPrevContext of the previous process.
 
    // Set the current process to the new process
    Current = next_process; // Assign the Current process pointer to the new process
@@ -419,7 +423,6 @@ void dispatcher(void)
    //                  old             new
    context_switch(pPrevContext, &next_process->state);   // Saves the current CPU state (including the PSR) in old and loads the state of new into the CPU.
 
-   p1_switch(Current->pid, next_process->pid);
 } /* dispatcher */
 
 
