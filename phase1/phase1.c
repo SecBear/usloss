@@ -36,6 +36,9 @@ proc_ptr Current;
 /* the next pid to be assigned */
 unsigned int next_pid = SENTINELPID;
 
+/* global variable to postpone dispatcher until first 2 processes are in the process table */
+int readyToStart = 0;
+
 
 /* -------------------------- Functions ----------------------------------- */
 /* ------------------------------------------------------------------------
@@ -76,6 +79,9 @@ void startup()
          console("startup(): fork1 of sentinel returned error, halting...\n");
       halt(1);
    }
+
+   // indicate we are ready to dispatch in fork1
+   readyToStart = 1;
   
    /* start the test process - start1 - Make sure you're able to launch the start1 program. - start1 is the entry point for all testcases */
    if (DEBUG && debugflag)
@@ -149,13 +155,13 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    }
    /* find an empty slot in the process table */
    proc_slot = -1;
-   for (int i = 0; i < MAXPROC; i++) {
+   for (int i = 1; i < MAXPROC; i++) {
         if (ProcTable[i].status == UNUSED) {
          proc_slot = i;
          break;
         }
    }
-   
+
    if (proc_slot == -1) {
       console("fork1(): no empty slot available in the process table, returning -1\n");
       return -1;
@@ -175,6 +181,9 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    }
    else                                      // Put the argument address (arg) into the process entry's start_arg element
       strcpy(ProcTable[proc_slot].start_arg, arg);
+
+   /* Assign PID to process */
+   ProcTable[proc_slot].pid = proc_slot; // Assign the process PID to proc_slot
 
    // Allocates stack space for the new process
 ProcTable[proc_slot].stack = (char *) malloc(stacksize);
@@ -199,7 +208,10 @@ context_init(&(ProcTable[proc_slot].state), psr_get(),
    /* call dispatcher dispatcher(); which will transition the processing
     * to whichever process needs to run next based on the scheduling algorithm 
     */
-   dispatcher(); // "when to call dispatcher? there's one nuance here but I want you to think about it before I give you the answer"
+   if (readyToStart)
+   {
+      dispatcher(); // "when to call dispatcher? there's one nuance here but I want you to think about it before I give you the answer"
+   }
 
 } /* fork1 */
 
@@ -271,6 +283,12 @@ void quit(int code)
    p1_quit(Current->pid);
 } /* quit */
 
+// TODO: Get the next ready process from the ready list
+proc_ptr GetNextReadyProc()
+{
+   // Cheating - should implement algorithm that gets next ready process here
+   return &ProcTable[2];   // Temporary for testing
+}
 
 /* ------------------------------------------------------------------------
    Name - dispatcher
@@ -285,10 +303,18 @@ void quit(int code)
 void dispatcher(void)
 {
    proc_ptr next_process;
+   void *pPrevContext=NULL;
 
    // TODO: find the next process to run
+   next_process = GetNextReadyProc();
+
+   // Set the current process to the new process
+   Current = next_process; // Assign the Current process pointer to the new process
 
    // TODO: swap in the new process and out the old process
+   // The very first time we run context_switch, the previous context should be NULL
+   //                  old             new
+   context_switch(pPrevContext, &next_process->state);   // Saves the current CPU state (including the PSR) in old and loads the state of new into the CPU.
 
    p1_switch(Current->pid, next_process->pid);
 } /* dispatcher */
