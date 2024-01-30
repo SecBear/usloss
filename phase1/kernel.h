@@ -4,10 +4,25 @@ typedef struct proc_struct proc_struct;
 
 typedef struct proc_struct * proc_ptr;
 
+typedef struct 
+{
+   /* data */
+   proc_ptr pHead;
+   proc_ptr pTail;
+   int count;
+} ProcList;
+
+
 struct proc_struct {
    proc_ptr       next_proc_ptr;
+   proc_ptr       prev_proc_ptr;
    proc_ptr       child_proc_ptr;
    proc_ptr       next_sibling_ptr;
+   proc_ptr       prev_sibling_ptr;
+   proc_ptr       parent_proc_ptr;  // Parent process 
+
+   ProcList       children;         // List of children
+
    char           name[MAXNAME];     /* process's name */
    char           start_arg[MAXARG]; /* args passed to process */
    context        state;             /* current context for process */

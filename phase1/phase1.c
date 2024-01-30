@@ -39,6 +39,8 @@ unsigned int next_pid = SENTINELPID;
 /* global variable to postpone dispatcher until first 2 processes are in the process table */
 int readyToStart = 0;
 
+/* the ready list - linked lists of ready processes, one for each priority level */
+ProcList ReadyList[6];
 
 /* -------------------------- Functions ----------------------------------- */
 /* ------------------------------------------------------------------------
@@ -186,23 +188,29 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ProcTable[proc_slot].pid = proc_slot; // Assign the process PID to proc_slot
 
    // Allocates stack space for the new process
-ProcTable[proc_slot].stack = (char *) malloc(stacksize);
-if (ProcTable[proc_slot].stack == NULL) {
-    console("fork1(): Stack allocation failed, returning -1\n");
-    return -1;  // make sure to handle allocation failure
-}
+   ProcTable[proc_slot].stack = (char *) malloc(stacksize);
+   if (ProcTable[proc_slot].stack == NULL) {
+      console("fork1(): Stack allocation failed, returning -1\n");
+      return -1;  // make sure to handle allocation failure
+   }
 
-// Sets stack size and initial process status
-ProcTable[proc_slot].stacksize = stacksize;
-ProcTable[proc_slot].status = READY;  // Set the process status to READY
+   // Sets stack size and initial process status
+   ProcTable[proc_slot].stacksize = stacksize;
+   ProcTable[proc_slot].status = READY;  // Set the process status to READY
    
-// Initialize context for this process with the 'launch' function as the entry point
-context_init(&(ProcTable[proc_slot].state), psr_get(),
+   // Initialize context for this process with the 'launch' function as the entry point
+   context_init(&(ProcTable[proc_slot].state), psr_get(),
                 ProcTable[proc_slot].stack, 
                 ProcTable[proc_slot].stacksize, launch);       // MUST be done, before you can switch process contexts
 
    /* for future phase(s) */
    p1_fork(ProcTable[proc_slot].pid);
+
+   // Assign Process Priority
+   ProcTable[proc_slot].priority = priority; 
+
+   // TODO: Add process to ready list (ready list priorities are 0-5 so priority 1 goes in ReadyList[0], priority 6 goes in ReadyList[5])
+   AddToList(&ReadyList[priority-1], &ProcTable[proc_slot]);
 
    // TODO: dispatcher
    /* call dispatcher dispatcher(); which will transition the processing
@@ -210,15 +218,17 @@ context_init(&(ProcTable[proc_slot].state), psr_get(),
     */
    if (readyToStart)
    {
-      dispatcher(); // "when to call dispatcher? there's one nuance here but I want you to think about it before I give you the answer"
+      dispatcher(); 
    }
 
 } /* fork1 */
 
 /* TODO: make function*/
+/* The interrupts can then be enabled by setting the current interrupt enable 
+bit in the processor status register (see Section 3.4). */
 static void enableInterrupts()
 {
-
+   
 
 }
 
@@ -283,13 +293,106 @@ void quit(int code)
    p1_quit(Current->pid);
 } /* quit */
 
+
+/* 
+   Name - PopList()
+   Purpose - to pop a process off the end of a linked list 
+   Parameters - the ProcList to pop an item off of
+
+   Do we want any additional argument passed?
+
+   You can use this function to add processes to the ready list like this:
+   PopList(&ReadyList[process_priority]);
+*/
+proc_ptr PopList(ProcList *list)
+{  
+   // Check if list is empty
+   if (list->count == 0)
+   {
+      return NULL;
+   }
+   
+   // Get the oldest item and replace list's head
+   proc_ptr poppedProc = list->pHead;  // get the head of the list (oldest item)
+   list->pHead = poppedProc->next_proc_ptr; // update the head to the next process
+
+   // Update head/tail pointers
+   if (list->pHead == NULL)
+   {
+      list->pTail = NULL;  // If the head becomes NULL (no more items), update the tail as well
+   }
+   else
+   {
+      list->pHead->prev_proc_ptr = NULL; // Update the new head's previous pointer to NULL
+   }
+
+   // Decrement the count of processes in the list
+   list->count--;
+
+   return poppedProc;
+}
+/*
+   Name - AddToList
+   Purpose - Add a process to a process list
+   Parameters - The ProcList to add an item to, the process to add)
+
+   You can use this function to add processes to the ready list like this:
+   AddToList(&ReadyList[process_priority], new_process);
+*/
+int AddToList(ProcList *list, proc_ptr process)
+{
+   if (process == NULL)
+   {
+      // Invalid process pointer
+      return 0;
+   }
+
+   // Update the new process's pointers 
+   process->next_proc_ptr = NULL;         // The new process will be the last one, so its next pointer is NULL
+   process->prev_proc_ptr = list->pTail;  // Its previous pointer points to the current tail
+
+   if (list->pTail != NULL)
+   {
+      // Update the current tail's next pointer to the new process if list is not empty
+      list->pTail->next_proc_ptr = process;
+   }
+
+   // The list's new tail is the new process
+   list->pTail = process;
+
+   if (list->pHead == NULL)
+   {
+      // If the list was empty, update the head to point to the new process
+      list->pHead = process;
+   }
+
+   // Increment the count of processes in the list
+   list->count++;
+
+   // Return 1 for success
+   return 1;
+}
+
+
 // TODO: Get the next ready process from the ready list
 proc_ptr GetNextReadyProc()
 {
-   // Cheating - should implement algorithm that gets next ready process here
-   return &ProcTable[2];   // Temporary for testing
+   // pull next entry from the ReadyList
+   for (int i = 1; i <= SENTINELPRIORITY; ++i)
+   {
+      // if there is an entry for this priority, get the first one (goes from 1 to 6)
+      if (ReadyList[i].count > 0)
+      {
+         // get the next ready item of the Ready List
+         return PopList(&ReadyList[i]);
+      }
+   }
+
+   // Error: code should not reach this block
+   printf("Error: GetNextReadyProc()\n");
 }
 
+// TODO: 
 /* ------------------------------------------------------------------------
    Name - dispatcher
    Purpose - dispatches ready processes.  The process with the highest
