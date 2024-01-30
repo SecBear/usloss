@@ -228,7 +228,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 bit in the processor status register (see Section 3.4). */
 static void enableInterrupts()
 {
-   
+
 
 }
 
@@ -381,10 +381,10 @@ proc_ptr GetNextReadyProc()
    for (int i = 1; i <= SENTINELPRIORITY; ++i)
    {
       // if there is an entry for this priority, get the first one (goes from 1 to 6)
-      if (ReadyList[i].count > 0)
+      if (ReadyList[i-1].count > 0)
       {
          // get the next ready item of the Ready List
-         return PopList(&ReadyList[i]);
+         return PopList(&ReadyList[i-1]);
       }
    }
 
