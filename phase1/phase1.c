@@ -166,7 +166,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       halt(1);
    }
    strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry (proc_struct in kernel.h)
-   ProcTable[proc_slot].start_func = f;      // Start the function for the process, assign output to f
+   ProcTable[proc_slot].start_func = f;      // Assign the start function address for the process to f
    if ( arg == NULL )                        // Check if arguments need to be passed
       ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
    else if ( strlen(arg) >= (MAXARG - 1) ) {    // Checks to see if it's argument is too long
