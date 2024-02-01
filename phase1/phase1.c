@@ -11,7 +11,7 @@
 #include "kernel.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
-int sentinel (void *);
+int sentinel (char *);
 extern int start1 (char *);
 void dispatcher(void);
 void launch();
@@ -65,7 +65,15 @@ void startup()
    /* Initialize the Ready list, etc. */
    if (DEBUG && debugflag)
       console("startup(): initializing the Ready & Blocked lists\n");
-   int * ReadyList = NULL; // Note: not sure what ReadyList is supposed to be, made it int * for now
+   
+   for (i = 0; i < sizeof(ReadyList) / sizeof(ReadyList[0]); i++) {   //I replaced 'int * ReadyList =NULL', it's not necessary since we have a Global ReadyList which is an array of 'ProcList', initialized 'ReadyList' without redeclaring it.
+       ReadyList[i].pHead = NULL;
+       ReadyList[i].pTail = NULL;
+       ReadyList[i].count = 0;
+   }
+
+   if (DEBUG && debugflag)
+       console("startup(): initialized the Ready list\n");
 
    /* Initialize the clock interrupt handler */
 
@@ -226,9 +234,9 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 /* TODO: make function*/
 /* The interrupts can then be enabled by setting the current interrupt enable 
 bit in the processor status register (see Section 3.4). */
-static void enableInterrupts()
-{
-
+static void enableInterrupts()  {
+    unsigned int currentPsr = psr_get();
+    psr_set(currentPsr | PSR_CURRENT_INT);
 
 }
 
@@ -403,27 +411,29 @@ proc_ptr GetNextReadyProc()
    Returns - nothing
    Side Effects - the context of the machine is changed
    ----------------------------------------------------------------------- */
-void dispatcher(void)
-{
-   proc_ptr next_process;
-   void *pPrevContext;   
+void dispatcher(void) {
+    proc_ptr next_process;
 
-// TODO figure out: p1_switch(Current->pid, next_process->pid);
+    // Find the next process to run
+    next_process = GetNextReadyProc();
 
-   // find the next process to run
-   next_process = GetNextReadyProc();
+    if (next_process != NULL) {
+        // Perform the context switch
+        if (Current != NULL) {
+            context_switch(&Current->state, &next_process->state);
+        } else {
+            context_switch(NULL, &next_process->state);
+        }
 
-   //TODO: Set the pPrevContext of the previous process.
+        // Update the current process
+        Current = next_process;
+    } else {
+        // Handle the case where there are no ready processes
+        console("dispatcher: No ready processes.\n");
+    }
+}
 
-   // Set the current process to the new process
-   Current = next_process; // Assign the Current process pointer to the new process
-
-   // TODO: swap in the new process and out the old process
-   // The very first time we run context_switch, the previous context should be NULL
-   //                  old             new
-   context_switch(pPrevContext, &next_process->state);   // Saves the current CPU state (including the PSR) in old and loads the state of new into the CPU.
-
-} /* dispatcher */
+/* dispatcher */
 
 
 /* ------------------------------------------------------------------------
@@ -437,8 +447,8 @@ void dispatcher(void)
    Side Effects -  if system is in deadlock, print appropriate error
 		   and halt.
    ----------------------------------------------------------------------- */
-// Changed from char * to void * (to match above)
-int sentinel (void * dummy)
+// changed from void to char * again to meet phase1.h signature/usloss infrastructure
+int sentinel (char * dummy)
 {
    if (DEBUG && debugflag)
       console("sentinel(): called\n");
