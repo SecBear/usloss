@@ -17,7 +17,7 @@ void dispatcher(void);
 void launch();
 static void enableInterrupts();
 static void check_deadlock();
-
+int AddToList(ProcList *list, proc_ptr process);  //added to resolve implicit declaration warning
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -229,6 +229,8 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       dispatcher(); 
    }
 
+   //return the PID of newly created process
+   return ProcTable[proc_slot].pid;
 } /* fork1 */
 
 /* TODO: make function*/
@@ -282,8 +284,45 @@ void launch()
    Side Effects - If no child process has quit before join is called, the 
                   parent is removed from the ready list and blocked.
    ------------------------------------------------------------------------ */
-int join(int *code)
-{
+int join(int *status) {
+    // Check if the process has any children
+    int hasChildren = 0;
+    for (int i = 0; i < MAXPROC; i++) {
+        if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) {
+            hasChildren = 1; // Found a child
+            if (ProcTable[i].status == ZOMBIE) {
+                // Child has quit but not been joined
+                *status = ProcTable[i].exitStatus; // Retrieve child's exit status
+                int childPid = ProcTable[i].pid;
+                // Clean up the child process
+                ProcTable[i].status = UNUSED;
+                ProcTable[i].parent_proc_ptr = NULL; // Reset parent pointer
+                return childPid; // Return the child's PID
+            }
+        }
+    }
+
+    if (!hasChildren) {
+        return -2; // Process has no children
+    }
+
+    // No child has quit yet, block the parent process
+    Current->status = WAITING;
+    dispatcher(); // Switch to another process
+
+    // Once unblocked, check if it was due to a child quitting
+    if (Current->childQuit) {
+        *status = Current->childStatus; // Retrieve the child's exit status from the parent's PCB
+        int childPid = Current->childPid; // Retrieve the child's PID from the parent's PCB
+        Current->childQuit = 0; // Reset the childQuit flag
+        return childPid; // Return the child's PID
+    }
+
+    // If the process was zapped while waiting
+    if (is_zapped()) {
+        return -1;
+    }
+   return 0; // Should not reach here, added to suppress compiler warning
 } /* join */
 
 
@@ -396,8 +435,8 @@ proc_ptr GetNextReadyProc()
       }
    }
 
-   // Error: code should not reach this block
-   printf("Error: GetNextReadyProc()\n");
+   // printf statement not considred return path for function, switched it out for default return path
+   return NULL;
 }
 
 // TODO: 
