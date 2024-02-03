@@ -33,6 +33,10 @@ struct proc_struct {
    unsigned int   stacksize;
    int            status;         /* READY, BLOCKED, QUIT, etc. */
    /* other fields as needed... */
+   int            exitStatus;     // Exit status of the process
+   int            childQuit;      // Flag indicating if a child has quit
+   int            childStatus;    // Exit status of the quitting child
+   int            childPid;       // PID of the quitting child
 };
 
 struct psr_bits {
@@ -57,4 +61,5 @@ union psr_values {
 #define SENTINELPID 1
 #define SENTINELPRIORITY LOWEST_PRIORITY
 #define LOWEST_PRIORITY 6  //set higher value for lower priorty in process scheduling
-
+#define ZOMBIE -1
+#define WAITING -2
