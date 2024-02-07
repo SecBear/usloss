@@ -18,6 +18,8 @@ void launch();
 static void enableInterrupts();
 static void check_deadlock();
 int AddToList(ProcList *list, proc_ptr process);  //added to resolve implicit declaration warning
+int GetNextPid();                                 // Get next available PID
+
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -30,11 +32,10 @@ proc_struct ProcTable[MAXPROC];  // Just an array that can hold 50 processes
 
 /* Process lists  */
 
-/* current process ID */
-proc_ptr Current;
-
-/* the next pid to be assigned */
-unsigned int next_pid = SENTINELPID;
+/* Processes */
+proc_ptr Current;                      // current process ID
+unsigned int next_pid = SENTINELPID;   // The next pid to be assigned
+int numProc = 0;                       // Number of currently active processes
 
 /* global variable to postpone dispatcher until first 2 processes are in the process table */
 int readyToStart = 0;
@@ -152,13 +153,12 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): stack size is too small, returning -2\n");
       return -2;
    }
-   
    /* Check if Priority is out of range, Process priority 6 must have name "sentinel" */ 
    if (priority < MAXPRIORITY || (priority > MINPRIORITY && strcmp(name, "sentinel") != 0) ) {
       console("fork1(): priority out of range, returning -1\n");
       return -1;
    }
-
+   /* Check if name is NULL */
    if (f == NULL || name == NULL) {
       console("fork1(): function or name is NULL, returning -1\n");
       return -1;
@@ -171,7 +171,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
          break;
         }
    }
-
+   /* Check if slot is available */
    if (proc_slot == -1) {
       console("fork1(): no empty slot available in the process table, returning -1\n");
       return -1;
@@ -193,7 +193,10 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       strcpy(ProcTable[proc_slot].start_arg, arg);
 
    /* Assign PID to process */
-   ProcTable[proc_slot].pid = proc_slot; // Assign the process PID to proc_slot
+   ProcTable[proc_slot].pid = GetNextPid(); // Assign the next available PID
+
+   // Assign Process Priority
+   ProcTable[proc_slot].priority = priority; 
 
    // Allocates stack space for the new process
    ProcTable[proc_slot].stack = (char *) malloc(stacksize);
@@ -214,19 +217,25 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    /* for future phase(s) */
    p1_fork(ProcTable[proc_slot].pid);
 
-   // Assign Process Priority
-   ProcTable[proc_slot].priority = priority; 
-
-   // TODO: Add process to ready list (ready list priorities are 0-5 so priority 1 goes in ReadyList[0], priority 6 goes in ReadyList[5])
+   // Add process to ready list (ready list priorities are 0-5 so priority 1 goes in ReadyList[0], priority 6 goes in ReadyList[5])
    AddToList(&ReadyList[priority-1], &ProcTable[proc_slot]);
 
-   // TODO: dispatcher
+   // Increment number of currently active processes (note: process must utilize quit() function for numProc to be decremented)
+   numProc++;
+
+   // dispatcher
    /* call dispatcher dispatcher(); which will transition the processing
     * to whichever process needs to run next based on the scheduling algorithm 
     */
    if (readyToStart)
    {
       dispatcher(); 
+   }
+   // else, we're on sentinel 
+   else 
+   {
+      // If true, populate Current with sentinel
+      Current = &ProcTable[SENTINELPID % MAXPROC];
    }
 
    //return the PID of newly created process
@@ -258,10 +267,12 @@ void launch()
    if (DEBUG && debugflag)
       console("launch(): started\n");
 
-   /* Enable interrupts */
+   /* Enable interrupts */ // TODO: set error handling
    enableInterrupts();
 
+   // On first launch(), Current is empty
    /* Call the function passed to fork1, and capture its return value */
+
    result = Current->start_func(Current->start_arg);
 
    if (DEBUG && debugflag)
@@ -318,12 +329,12 @@ int join(int *status) {
         return childPid; // Return the child's PID
     }
 
-    // If the process was zapped while waiting
-    if (is_zapped()) {
-        return -1;
-    }
+    // If the process was zapped while waiting - TEMPORARILY UNCOMMENTED FOR TESTING
+//    if (is_zapped()) {
+//        return -1;
+//    }
    return 0; // Should not reach here, added to suppress compiler warning
-} /* join */
+} /* join */ 
 
 
 /* ------------------------------------------------------------------------
@@ -338,6 +349,8 @@ int join(int *status) {
 void quit(int code)
 {
    p1_quit(Current->pid);
+
+   numProc--;                 // Decrement the number of active processes
 } /* quit */
 
 
@@ -420,6 +433,25 @@ int AddToList(ProcList *list, proc_ptr process)
    return 1;
 }
 
+/* Name - GetNextPid
+*/
+int GetNextPid()
+{
+   int newPid = -1;                       // Initialize new pid to -1
+   int procSlot = next_pid % MAXPROC;     // Assign new process to next_pid mod MAXPROC (to wrap around to 1, 2, 3, etc. from 50)
+
+   if (numProc < MAXPROC)
+   {
+      while (numProc < MAXPROC && ProcTable[procSlot].status != UNUSED)
+      {
+         next_pid++;
+         procSlot = next_pid % MAXPROC;
+      }
+      newPid = next_pid++;                // Assigns newPid to current next_pid value, then increments next_pid
+   }
+
+   return newPid;
+}
 
 // TODO: Get the next ready process from the ready list
 proc_ptr GetNextReadyProc()
@@ -457,10 +489,11 @@ void dispatcher(void) {
     next_process = GetNextReadyProc();
 
     if (next_process != NULL) {
-        // Perform the context switch
-        if (Current != NULL) {
+        // Perform the context switch 
+        if (Current != NULL) { 
             context_switch(&Current->state, &next_process->state);
         } else {
+            // Set Current to sentinel (Code should never reach here)
             context_switch(NULL, &next_process->state);
         }
 
@@ -470,10 +503,7 @@ void dispatcher(void) {
         // Handle the case where there are no ready processes
         console("dispatcher: No ready processes.\n");
     }
-}
-
-/* dispatcher */
-
+} /* dispatcher *
 
 /* ------------------------------------------------------------------------
    Name - sentinel
