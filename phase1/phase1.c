@@ -234,8 +234,10 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    // else, we're on sentinel 
    else 
    {
-      // If true, populate Current with sentinel
+      // populate Current with sentinel
       Current = &ProcTable[SENTINELPID % MAXPROC];
+      // context switch to sentinel
+      context_switch(NULL, &Current->state);
    }
 
    //return the PID of newly created process
@@ -484,6 +486,12 @@ proc_ptr GetNextReadyProc()
    ----------------------------------------------------------------------- */
 void dispatcher(void) {
     proc_ptr next_process;
+
+    // TODO: Check if current process can continue running
+    // Has process been time-sliced?
+    // Has process been blocked?
+    // Is process still the highest priority among READY processes?
+      // If not, it has to go back on the ready list
 
     // Find the next process to run
     next_process = GetNextReadyProc();
