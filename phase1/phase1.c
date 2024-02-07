@@ -17,8 +17,9 @@ void dispatcher(void);
 void launch();
 static void enableInterrupts();
 static void check_deadlock();
-int AddToList(ProcList *list, proc_ptr process);  //added to resolve implicit declaration warning
-int GetNextPid();                                 // Get next available PID
+int AddToList(ProcList *list, proc_ptr process);   //added to resolve implicit declaration warning
+int GetNextPid();                                  // Get next available PID
+void clockHandler();                               // For Handling clock interrupts
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -77,6 +78,7 @@ void startup()
        console("startup(): initialized the Ready list\n");
 
    /* Initialize the clock interrupt handler */
+   int_vec[CLOCK_DEV] = clockHandler;
 
    /* startup a sentinel process - the background process that runs when nobody else is ready to run. The wait room if you will (busy wait). 
       we have to have this process so that we can switch control back to it from another process that terminates, is waiting for i/o, etc. 
@@ -237,7 +239,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       // populate Current with sentinel
       Current = &ProcTable[SENTINELPID % MAXPROC];
       // context switch to sentinel
-      context_switch(NULL, &Current->state);
+      //context_switch(NULL, &Current->state);
    }
 
    //return the PID of newly created process
@@ -274,7 +276,6 @@ void launch()
 
    // On first launch(), Current is empty
    /* Call the function passed to fork1, and capture its return value */
-
    result = Current->start_func(Current->start_arg);
 
    if (DEBUG && debugflag)
@@ -486,6 +487,7 @@ proc_ptr GetNextReadyProc()
    ----------------------------------------------------------------------- */
 void dispatcher(void) {
     proc_ptr next_process;
+    context *pPrevContext=NULL;
 
     // TODO: Check if current process can continue running
     // Has process been time-sliced?
@@ -496,21 +498,23 @@ void dispatcher(void) {
     // Find the next process to run
     next_process = GetNextReadyProc();
 
-    if (next_process != NULL) {
-        // Perform the context switch 
-        if (Current != NULL) { 
-            context_switch(&Current->state, &next_process->state);
-        } else {
-            // Set Current to sentinel (Code should never reach here)
-            context_switch(NULL, &next_process->state);
-        }
-
-        // Update the current process
-        Current = next_process;
-    } else {
-        // Handle the case where there are no ready processes
-        console("dispatcher: No ready processes.\n");
+    // Is the process changing
+    if (next_process != Current)
+    {
+      if (Current != NULL) 
+      {
+         // Populate pPrevContext with current state
+         pPrevContext = &Current->state;
+      }
     }
+   
+    Current = next_process;
+
+    // Change the current status to running
+    Current->status = RUNNING;
+
+    context_switch(pPrevContext, &Current->state);
+
 } /* dispatcher *
 
 /* ------------------------------------------------------------------------
@@ -557,3 +561,10 @@ void disableInterrupts()
     /* We ARE in kernel mode */
     psr_set( psr_get() & ~PSR_CURRENT_INT );
 } /* disableInterrupts */
+
+/* TODO: Clock Handler function */
+void clockHandler()
+{
+   dispatcher();
+
+}

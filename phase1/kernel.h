@@ -53,13 +53,18 @@ union psr_values {
 };
 
 /* Some useful constants.  Add more as needed... */
+
+// STATUS
 #define UNUSED -1   //defined new constant to initialize 'status' field of each proc_struct' in process table to indicate slots are available for new processess
 #define READY 1    //defined new constant as it represents status of a process that is ready to run 
+#define RUNNING 2
+#define ZOMBIE -1
+#define WAITING -2
+
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5
 #define MAXPRIORITY 1
 #define SENTINELPID 1
 #define SENTINELPRIORITY LOWEST_PRIORITY
 #define LOWEST_PRIORITY 6  //set higher value for lower priorty in process scheduling
-#define ZOMBIE -1
-#define WAITING -2
+
