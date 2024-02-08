@@ -229,14 +229,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    {
       dispatcher(); 
    }
-   // else, we're on sentinel 
-   else 
-   {
-      // populate Current with sentinel
-      Current = &ProcTable[SENTINELPID % MAXPROC];
-      // context switch to sentinel
-      //context_switch(NULL, &Current->state);
-   }
 
    //return the PID of newly created process
    return ProcTable[proc_slot].pid;
@@ -370,7 +362,7 @@ void quit(int code)
    // If process has a parent
    if (Current->pParent != NULL)
    {
-      // If current proceess's parent is blocked
+      // If current proceess's parent is blocked -- SENTINEL's status is ready so it doesn't trigger the following logic
       if (Current->pParent->status == STATUS_BLOCKED_JOIN)
       {
          // make parent ready to run again
