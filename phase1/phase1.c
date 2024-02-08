@@ -478,19 +478,46 @@ int GetNextPid()
    ------------------------------------------------------------------------ */
 proc_ptr GetNextReadyProc()
 {
-   // pull next entry from the ReadyList
-   for (int i = 1; i <= SENTINELPRIORITY; ++i)
-   {
-      // if there is an entry for this priority, get the first one (goes from 1 to 6)
-      if (ReadyList[i-1].count > 0)
+   proc_ptr nextProc = NULL;
+   int lookForNewProcess = 0;
+
+   // first see if the current process is the highest
+
+   // if there are processes running,
+   if (Current != NULL)
+   {  
+      nextProc = Current;
+      // Go through the ready list and see if any process is higher priority than Current (if highest priority, won't check)
+      for (int i = 0; i <= Current->priority-1; ++i)
       {
-         // get the next ready item of the Ready List
-         return PopList(&ReadyList[i-1]);
+         if (ReadyList[i].count > 0)
+         {
+            // If there is, look for new process
+            lookForNewProcess = 1;
+         }
       }
    }
+   else
+   {
+      lookForNewProcess = 1;
+   }
 
-   // printf statement not considred return path for function, switched it out for default return path
-   return NULL;
+   if (lookForNewProcess)
+   {
+      // pull next entry from the ReadyList
+      for (int i = 1; i <= SENTINELPRIORITY; ++i)
+      {
+         // if there is an entry for this priority, get the first one (goes from 1 to 6)
+         if (ReadyList[i-1].count > 0)
+         {
+            // get the next ready item of the Ready List (pop it off the list and return)
+            nextProc = PopList(&ReadyList[i-1]);
+
+            return nextProc;
+         }
+      }      
+   }
+   return nextProc;
 }
 
 /* ------------------------------------------------------------------------
@@ -507,33 +534,30 @@ void dispatcher(void) {
     proc_ptr next_process;
     context *pPrevContext=NULL;
 
-    // TODO: Check if current process can continue running
+    // TODO: Check if current process can continue running - DONE - implemented in GetNextReadyProc
     // Has process been time-sliced?
     // Has process been blocked?
     // Is process still the highest priority among READY processes?
       // If not, it has to go back on the ready list
 
-    // Find the next process to run
+    // Find the next process to run (returns current process or new process)
     next_process = GetNextReadyProc();
 
     // Is the process changing
     if (next_process != Current)
     {
-      if (Current != NULL) 
-      {
-         // Populate pPrevContext with current state
-         pPrevContext = &Current->state;
+      // If there is a currently running process
+      if (Current != NULL)
+      { 
+         pPrevContext = &Current->state; // Populate pPrevContext with current state
       }
+         Current = next_process; // Assign Current to new process
+         Current->status = RUNNING; // Change the current status to running
+         context_switch(pPrevContext, &Current->state); // Change the current status to running
     }
-   
-    Current = next_process;
-
-    // Change the current status to running
-    Current->status = RUNNING;
-
-    context_switch(pPrevContext, &Current->state);
-
+      // NOTE: First context switch from NULL handled in fork1
 } /* dispatcher *
+
 
 /* ------------------------------------------------------------------------
    Name - sentinel
