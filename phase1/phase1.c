@@ -20,7 +20,9 @@ static void check_deadlock();
 int AddToList(ProcList *list, proc_ptr process);   //added to resolve implicit declaration warning
 int GetNextPid();                                  // Get next available PID
 void clockHandler();                               // For Handling clock interrupts
-
+void DebugConsole(char *format, ...);
+static void check_deadlock();
+int check_io();                                   // Dummy function for future phase
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -141,9 +143,9 @@ void finish()
 int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 {
    int proc_slot;
+   int newPid;
 
-   if (DEBUG && debugflag)
-      console("fork1(): creating process %s\n", name);
+   DebugConsole("fork1(): creating process %s\n", name);
 
    /* test if in kernel mode; halt if in user mode */
    if ((psr_get() & PSR_CURRENT_MODE) == 0) {
@@ -166,13 +168,12 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       return -1;
    }
    /* find an empty slot in the process table */
-   proc_slot = -1;
-   for (int i = 1; i < MAXPROC; i++) {
-        if (ProcTable[i].status == UNUSED) {
-         proc_slot = i;
-         break;
-        }
-   }
+   newPid = GetNextPid();
+   proc_slot = newPid % MAXPROC;
+
+    /* Assign PID to process */
+   ProcTable[proc_slot].pid = newPid; // Assign the next available PID
+
    /* Check if slot is available */
    if (proc_slot == -1) {
       console("fork1(): no empty slot available in the process table, returning -1\n");
@@ -185,6 +186,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    }
    strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry (proc_struct in kernel.h)
    ProcTable[proc_slot].start_func = f;      // Assign the start function address for the process to f
+
    if ( arg == NULL )                        // Check if arguments need to be passed
       ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
    else if ( strlen(arg) >= (MAXARG - 1) ) {    // Checks to see if it's argument is too long
@@ -194,9 +196,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    else                                      // Put the argument address (arg) into the process entry's start_arg element
       strcpy(ProcTable[proc_slot].start_arg, arg);
 
-   /* Assign PID to process */
-   ProcTable[proc_slot].pid = GetNextPid(); // Assign the next available PID
-
+   
    // Assign Process Priority
    ProcTable[proc_slot].priority = priority; 
 
@@ -223,7 +223,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    AddToList(&ReadyList[priority-1], &ProcTable[proc_slot]);
 
    // Increment number of currently active processes (note: process must utilize quit() function for numProc to be decremented)
-   numProc++;
+   ++numProc;
 
    // dispatcher
    /* call dispatcher dispatcher(); which will transition the processing
@@ -268,8 +268,7 @@ void launch()
 {
    int result;
 
-   if (DEBUG && debugflag)
-      console("launch(): started\n");
+   DebugConsole("launch(): started\n");
 
    /* Enable interrupts */ // TODO: set error handling
    enableInterrupts();
@@ -278,8 +277,7 @@ void launch()
    /* Call the function passed to fork1, and capture its return value */
    result = Current->start_func(Current->start_arg);
 
-   if (DEBUG && debugflag)
-      console("Process %d returned to launch\n", Current->pid);
+   DebugConsole("Process %d returned to launch\n", Current->pid);
 
    quit(result);
 
@@ -292,19 +290,24 @@ void launch()
              one has already quit, don't wait.
    Parameters - a pointer to an int where the termination code of the 
                 quitting process is to be stored.
-   Returns - the process id of the quitting child joined on.
+   Returns - the process id and status of the quitting child joined on.
 		-1 if the process was zapped in the join
 		-2 if the process has no children
    Side Effects - If no child process has quit before join is called, the 
                   parent is removed from the ready list and blocked.
    ------------------------------------------------------------------------ */
+   // TODO: return -1 if the parent process was zapped while waiting for a child to quit
 int join(int *status) {
     // Check if the process has any children
     int hasChildren = 0;
     for (int i = 0; i < MAXPROC; i++) {
-        if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) {
+        if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) 
+        {
             hasChildren = 1; // Found a child
-            if (ProcTable[i].status == ZOMBIE) {
+
+            // If process is a zombie
+            if (ProcTable[i].status == ZOMBIE) 
+            {
                 // Child has quit but not been joined
                 *status = ProcTable[i].exitStatus; // Retrieve child's exit status
                 int childPid = ProcTable[i].pid;
@@ -323,6 +326,8 @@ int join(int *status) {
     // No child has quit yet, block the parent process
     Current->status = WAITING;
     dispatcher(); // Switch to another process
+
+    // How does the process get unblocked from here?
 
     // Once unblocked, check if it was due to a child quitting
     if (Current->childQuit) {
@@ -350,14 +355,23 @@ int join(int *status) {
    Side Effects - changes the parent of pid child completion status list.
    ------------------------------------------------------------------------ */
 void quit(int code)
-{
+{  
+   // Does process have children?
+      // if so, HALT USLOSS with appropriate error message
+
+   // Clean up the PCB (a.k.a. proc_struct or process table entry) (not entirely because its paremtn may want to join it later)
+      // Two cases:
+         // 1. Parent has already done a join
+         // 2. Parent has not done a join yet
+      // Unblock processes that zapped this process
+      // May have children who have quit() and completely clean up the PCBs for these zombie children
    p1_quit(Current->pid);
 
    numProc--;                 // Decrement the number of active processes
 } /* quit */
 
 
-/* 
+/* ------------------------------------------------------------------------
    Name - PopList()
    Purpose - to pop a process off the end of a linked list 
    Parameters - the ProcList to pop an item off of
@@ -366,7 +380,7 @@ void quit(int code)
 
    You can use this function to add processes to the ready list like this:
    PopList(&ReadyList[process_priority]);
-*/
+   ------------------------------------------------------------------------ */
 proc_ptr PopList(ProcList *list)
 {  
    // Check if list is empty
@@ -394,14 +408,14 @@ proc_ptr PopList(ProcList *list)
 
    return poppedProc;
 }
-/*
+/* ------------------------------------------------------------------------
    Name - AddToList
    Purpose - Add a process to a process list
    Parameters - The ProcList to add an item to, the process to add)
 
    You can use this function to add processes to the ready list like this:
-   AddToList(&ReadyList[process_priority], new_process);
-*/
+   AddToList(&ReadyList[process_priority], new_process); 
+   ------------------------------------------------------------------------ */
 int AddToList(ProcList *list, proc_ptr process)
 {
    if (process == NULL)
@@ -436,8 +450,10 @@ int AddToList(ProcList *list, proc_ptr process)
    return 1;
 }
 
-/* Name - GetNextPid
-*/
+/* ------------------------------------------------------------------------
+   Name - GetNextPid
+   Purpose - Get next available PID
+   ------------------------------------------------------------------------ */
 int GetNextPid()
 {
    int newPid = -1;                       // Initialize new pid to -1
@@ -456,7 +472,10 @@ int GetNextPid()
    return newPid;
 }
 
-// TODO: Get the next ready process from the ready list
+/* ------------------------------------------------------------------------
+   Name - GetNextReadyProc
+   Purpose - Get the next ready process from the ready list
+   ------------------------------------------------------------------------ */
 proc_ptr GetNextReadyProc()
 {
    // pull next entry from the ReadyList
@@ -474,7 +493,6 @@ proc_ptr GetNextReadyProc()
    return NULL;
 }
 
-// TODO: 
 /* ------------------------------------------------------------------------
    Name - dispatcher
    Purpose - dispatches ready processes.  The process with the highest
@@ -531,8 +549,7 @@ void dispatcher(void) {
 // changed from void to char * again to meet phase1.h signature/usloss infrastructure
 int sentinel (char * dummy)
 {
-   if (DEBUG && debugflag)
-      console("sentinel(): called\n");
+   DebugConsole("sentinel():called\n");
    while (1) // forever loop
    {
       check_deadlock();
@@ -541,15 +558,40 @@ int sentinel (char * dummy)
 } /* sentinel */
 
 
-/* check to determine if deadlock has occurred... */
+/* ------------------------------------------------------------------------
+   Name - check_deadlock
+   Purpose - check to determine if deadlock has occurred... 
+   ------------------------------------------------------------------------ */
 static void check_deadlock()
 {
+   if (check_io() == 1) // In a future phase- dummy that always returns 0. You need to provide its definition.
+      return;
+   
+   /* Has everyone terminated? */
+   // Check number of processes
+   if (numProc == 1)
+   {
+      // If there is only one active process, me, 
+      // halt(0)
+      halt(0);
+   }
+   else
+   {
+      // otherwise halt(1)
+      halt(1);
+   }
 } /* check_deadlock */
 
+// Dummy function for future phase
+int check_io()
+{
+   return 0;
+}
 
-/*
- * Disables the interrupts.
- */
+/* ------------------------------------------------------------------------
+   Name - disableInterrupts
+   Purpose - Disables the interrupts.
+   ------------------------------------------------------------------------ */
 void disableInterrupts()
 {
   /* turn the interrupts OFF iff we are in kernel mode */
@@ -567,4 +609,22 @@ void clockHandler()
 {
    dispatcher();
 
+}
+
+/* ---------------------------------------------------------
+   Name - DebugConsole
+   Purpose - Prints the message to the console if in debug mode
+   Parameters - format string and va args
+   Returns - nothing
+   Side Effects -
+   ---------------------------------------------------------*/
+void DebugConsole(char *format, ...)
+{
+   if (DEBUG && debugflag)
+   {
+      va_list argptr;
+      va_start(argptr, format);
+      console(format, argptr);
+      va_end(argptr);
+   }
 }

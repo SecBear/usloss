@@ -27,16 +27,16 @@ struct proc_struct {
    char           start_arg[MAXARG]; /* args passed to process */
    context        state;             /* current context for process */
    short          pid;               /* process id */
-   int            priority;
-   int (* start_func) (char *);   /* function where process begins -- launch */
-   char          *stack;
-   unsigned int   stacksize;
-   int            status;         /* READY, BLOCKED, QUIT, etc. */
+   int            priority;          /* process priority */
+   int (* start_func) (char *);      /* function where process begins -- launch */
+   char          *stack;             /* pointer to the stack */
+   unsigned int   stacksize;         /* size of the stack */
+   int            status;            /* READY, BLOCKED, QUIT, etc. */
    /* other fields as needed... */
-   int            exitStatus;     // Exit status of the process
-   int            childQuit;      // Flag indicating if a child has quit
-   int            childStatus;    // Exit status of the quitting child
-   int            childPid;       // PID of the quitting child
+   int            exitStatus;        // Exit status of the process
+   int            childQuit;         // Flag indicating if a child has quit
+   int            childStatus;       // Exit status of the quitting child
+   int            childPid;          // PID of the quitting child
 };
 
 struct psr_bits {
@@ -55,11 +55,13 @@ union psr_values {
 /* Some useful constants.  Add more as needed... */
 
 // STATUS
-#define UNUSED -1   //defined new constant to initialize 'status' field of each proc_struct' in process table to indicate slots are available for new processess
-#define READY 1    //defined new constant as it represents status of a process that is ready to run 
-#define RUNNING 2
-#define ZOMBIE -1
-#define WAITING -2
+#define UNUSED    -1   //defined new constant to initialize 'status' field of each proc_struct' in process table to indicate slots are available for new processess
+#define EMPTY     0     
+#define READY     1    //defined new constant as it represents status of a process that is ready to run 
+#define BLOCKED_JOIN 2
+#define RUNNING   3
+#define ZOMBIE    -1
+#define WAITING   -2
 
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5
