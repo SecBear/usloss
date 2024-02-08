@@ -16,10 +16,10 @@ typedef struct
 struct proc_struct {
    proc_ptr       next_proc_ptr;
    proc_ptr       prev_proc_ptr;
-   proc_ptr       child_proc_ptr;
+   proc_ptr       pChild;
    proc_ptr       next_sibling_ptr;
    proc_ptr       prev_sibling_ptr;
-   proc_ptr       parent_proc_ptr;  // Parent process 
+   proc_ptr       pParent;  // Parent process 
 
    ProcList       children;         // List of children
 
@@ -33,10 +33,10 @@ struct proc_struct {
    unsigned int   stacksize;         /* size of the stack */
    int            status;            /* READY, BLOCKED, QUIT, etc. */
    /* other fields as needed... */
-   int            exitStatus;        // Exit status of the process
-   int            childQuit;         // Flag indicating if a child has quit
-   int            childStatus;       // Exit status of the quitting child
-   int            childPid;          // PID of the quitting child
+   int            exitCode;          // Exit status of the process
+   // int            childQuit;         // Flag indicating if a child has quit
+   // int            childStatus;       // Exit status of the quitting child
+   // int            childPid;          // PID of the quitting child
 };
 
 struct psr_bits {
@@ -54,14 +54,15 @@ union psr_values {
 
 /* Some useful constants.  Add more as needed... */
 
-// STATUS
-#define UNUSED    -1   //defined new constant to initialize 'status' field of each proc_struct' in process table to indicate slots are available for new processess
-#define EMPTY     0     
-#define READY     1    //defined new constant as it represents status of a process that is ready to run 
-#define BLOCKED_JOIN 2
-#define RUNNING   3
-#define ZOMBIE    -1
-#define WAITING   -2
+// STATUSES
+#define STATUS_WAITING        -3
+#define STATUS_ZOMBIE         -2
+#define STATUS_EMPTY          0    // using this in place of UNUSED 
+#define STATUS_READY          1    //defined new constant as it represents status of a process that is ready to run 
+#define STATUS_BLOCKED_JOIN   2
+#define STATUS_RUNNING        3
+#define STATUS_QUIT           4
+
 
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5

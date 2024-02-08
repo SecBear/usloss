@@ -62,8 +62,8 @@ void startup()
 
    /* initialize the process table */
    for (int i = 0; i < MAXPROC; i++) {
-      ProcTable[i].status = UNUSED;   //marking each entry as unused
-      ProcTable[i].pid = UNUSED;      //Using same constant to mark PID as unused
+      ProcTable[i].status = STATUS_EMPTY;   //marking each entry as empty
+      ProcTable[i].pid = STATUS_EMPTY;      //Using same constant to mark PID as empty
    }
 
    /* Initialize the Ready list, etc. */
@@ -99,8 +99,7 @@ void startup()
    readyToStart = 1;
   
    /* start the test process - start1 - Make sure you're able to launch the start1 program. - start1 is the entry point for all testcases */
-   if (DEBUG && debugflag)
-      console("startup(): calling fork1() for start1\n");
+   DebugConsole("startup(): calling fork1() for start1\n");
    result = fork1("start1", start1, NULL, 2 * USLOSS_MIN_STACK, 1); // highest priority process (1)
    if (result < 0) {
       console("startup(): fork1 for start1 returned an error, halting...\n");
@@ -170,10 +169,8 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    /* find an empty slot in the process table */
    newPid = GetNextPid();
    proc_slot = newPid % MAXPROC;
-
-    /* Assign PID to process */
+   /* Assign PID to process */
    ProcTable[proc_slot].pid = newPid; // Assign the next available PID
-
    /* Check if slot is available */
    if (proc_slot == -1) {
       console("fork1(): no empty slot available in the process table, returning -1\n");
@@ -184,8 +181,11 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       console("fork1(): Process name is too long.  Halting...\n");
       halt(1);
    }
+
    strcpy(ProcTable[proc_slot].name, name);  // Put the name in the process entry (proc_struct in kernel.h)
    ProcTable[proc_slot].start_func = f;      // Assign the start function address for the process to f
+   ProcTable[proc_slot].priority = priority; // Assign Process Priority
+   ProcTable[proc_slot].pParent = Current;   // Store current in pParent
 
    if ( arg == NULL )                        // Check if arguments need to be passed
       ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
@@ -196,10 +196,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    else                                      // Put the argument address (arg) into the process entry's start_arg element
       strcpy(ProcTable[proc_slot].start_arg, arg);
 
-   
-   // Assign Process Priority
-   ProcTable[proc_slot].priority = priority; 
-
    // Allocates stack space for the new process
    ProcTable[proc_slot].stack = (char *) malloc(stacksize);
    if (ProcTable[proc_slot].stack == NULL) {
@@ -209,7 +205,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 
    // Sets stack size and initial process status
    ProcTable[proc_slot].stacksize = stacksize;
-   ProcTable[proc_slot].status = READY;  // Set the process status to READY
+   ProcTable[proc_slot].status = STATUS_READY;  // Set the process status to READY
    
    // Initialize context for this process with the 'launch' function as the entry point
    context_init(&(ProcTable[proc_slot].state), psr_get(),
@@ -299,7 +295,7 @@ void launch()
    // TODO: return -1 if the parent process was zapped while waiting for a child to quit
 int join(int *status) {
     // Check if the process has any children
-    int hasChildren = 0;
+   /* int hasChildren = 0;
     for (int i = 0; i < MAXPROC; i++) {
         if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) 
         {
@@ -318,24 +314,25 @@ int join(int *status) {
             }
         }
     }
-
+   
     if (!hasChildren) {
         return -2; // Process has no children
     }
-
+   */
     // No child has quit yet, block the parent process
-    Current->status = WAITING;
+    Current->status = STATUS_BLOCKED_JOIN;
     dispatcher(); // Switch to another process
 
-    // How does the process get unblocked from here?
+   // WHO QUIT?? get their exit code. Empty their slot in the proc table.
+   // Clean up after your children
 
     // Once unblocked, check if it was due to a child quitting
-    if (Current->childQuit) {
+    /*if (Current->childQuit) {
         *status = Current->childStatus; // Retrieve the child's exit status from the parent's PCB
         int childPid = Current->childPid; // Retrieve the child's PID from the parent's PCB
         Current->childQuit = 0; // Reset the childQuit flag
         return childPid; // Return the child's PID
-    }
+    } */
 
     // If the process was zapped while waiting - TEMPORARILY UNCOMMENTED FOR TESTING
 //    if (is_zapped()) {
@@ -367,7 +364,22 @@ void quit(int code)
       // May have children who have quit() and completely clean up the PCBs for these zombie children
    p1_quit(Current->pid);
 
+   Current->status = STATUS_QUIT;   // Marked for death (quit) 
+   Current->exitCode = code;        // save exit code 
+
+   // If process has a parent
+   if (Current->pParent != NULL)
+   {
+      // If current proceess's parent is blocked
+      if (Current->pParent->status == STATUS_BLOCKED_JOIN)
+      {
+         // make parent ready to run again
+         Current->pParent->status = STATUS_READY;             // Set parent status to ready
+         AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent);      // Add parent to ready list
+      }
+   }
    numProc--;                 // Decrement the number of active processes
+   dispatcher();
 } /* quit */
 
 
@@ -461,7 +473,7 @@ int GetNextPid()
 
    if (numProc < MAXPROC)
    {
-      while (numProc < MAXPROC && ProcTable[procSlot].status != UNUSED)
+      while (numProc < MAXPROC && ProcTable[procSlot].status != STATUS_EMPTY)
       {
          next_pid++;
          procSlot = next_pid % MAXPROC;
@@ -484,7 +496,7 @@ proc_ptr GetNextReadyProc()
    // first see if the current process is the highest
 
    // if there are processes running,
-   if (Current != NULL)
+   if (Current != NULL && Current->status == STATUS_RUNNING)
    {  
       nextProc = Current;
       // Go through the ready list and see if any process is higher priority than Current (if highest priority, won't check)
@@ -552,7 +564,8 @@ void dispatcher(void) {
          pPrevContext = &Current->state; // Populate pPrevContext with current state
       }
          Current = next_process; // Assign Current to new process
-         Current->status = RUNNING; // Change the current status to running
+         Current->status = STATUS_RUNNING; // Change the current status to running
+         // context_switch poops itself when switching from start1 back to sentinel
          context_switch(pPrevContext, &Current->state); // Change the current status to running
     }
       // NOTE: First context switch from NULL handled in fork1
