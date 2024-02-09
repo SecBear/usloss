@@ -32,19 +32,22 @@ struct proc_struct {
    char          *stack;             /* pointer to the stack */
    unsigned int   stacksize;         /* size of the stack */
    int            status;            /* READY, BLOCKED, QUIT, etc. */
+
    /* other fields as needed... */
    int            exitCode;          // Exit status of the process
-   // int            childQuit;         // Flag indicating if a child has quit
+   proc_ptr       pQuitChild;         // Pointer of quitting child - indicating if a child has quit
    // int            childStatus;       // Exit status of the quitting child
    // int            childPid;          // PID of the quitting child
 };
 
-struct psr_bits {
-        unsigned int cur_mode:1;
-       unsigned int cur_int_enable:1;
-        unsigned int prev_mode:1;
-        unsigned int prev_int_enable:1;
-    unsigned int unused:28;
+// Can use this to check kernel mode
+struct psr_bits 
+{
+   unsigned int cur_mode:1;
+   unsigned int cur_int_enable:1;
+   unsigned int prev_mode:1;
+   unsigned int prev_int_enable:1;
+   unsigned int unused:28;
 };
 
 union psr_values {

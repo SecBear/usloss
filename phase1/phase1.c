@@ -22,7 +22,8 @@ int GetNextPid();                                  // Get next available PID
 void clockHandler();                               // For Handling clock interrupts
 void DebugConsole(char *format, ...);
 static void check_deadlock();
-int check_io();                                   // Dummy function for future phase
+int check_io();                                    // Dummy function for future phase
+void checkKernelMode();                             // Check if we're in kernel mode
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -147,10 +148,12 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    DebugConsole("fork1(): creating process %s\n", name);
 
    /* test if in kernel mode; halt if in user mode */
-   if ((psr_get() & PSR_CURRENT_MODE) == 0) {
+   /*if ((psr_get() & PSR_CURRENT_MODE) == 0) {
       console("fork1(): not in kernel mode, halting...\n");
       halt(1);
-   }
+   } */
+   checkKernelMode();
+
    /* Return if stack size is too small */
    if (stacksize < USLOSS_MIN_STACK) {
       console("fork1(): stack size is too small, returning -2\n");
@@ -285,7 +288,13 @@ void launch()
                   parent is removed from the ready list and blocked.
    ------------------------------------------------------------------------ */
    // TODO: return -1 if the parent process was zapped while waiting for a child to quit
-int join(int *status) {
+int join(int *status) 
+{
+   int childPid = -1;
+
+   // Check if we're in kernel mode
+   checkKernelMode();
+
     // Check if the process has any children
    /* int hasChildren = 0;
     for (int i = 0; i < MAXPROC; i++) {
@@ -311,12 +320,23 @@ int join(int *status) {
         return -2; // Process has no children
     }
    */
+
+   // HAVE any children quit yet?
+
     // No child has quit yet, block the parent process
     Current->status = STATUS_BLOCKED_JOIN;
     dispatcher(); // Switch to another process
 
    // WHO QUIT?? get their exit code. Empty their slot in the proc table.
    // Clean up after your children
+   if (Current->pQuitChild != NULL)
+   {
+      *status = Current->pQuitChild->exitCode;  // Get quitting child's exit code
+      childPid = Current->pQuitChild->pid;      // Get quitting child's pid
+
+      memset(Current->pQuitChild, 0, sizeof(proc_struct));  // Reset pQuitChild back to 0 (clean up)
+   }
+   return childPid;  // Return quitting child's pid
 
     // Once unblocked, check if it was due to a child quitting
     /*if (Current->childQuit) {
@@ -345,6 +365,9 @@ int join(int *status) {
    ------------------------------------------------------------------------ */
 void quit(int code)
 {  
+   // Check if we're in kernel mode
+   checkKernelMode();
+
    // Does process have children?
       // if so, HALT USLOSS with appropriate error message
 
@@ -362,6 +385,8 @@ void quit(int code)
    // If process has a parent
    if (Current->pParent != NULL)
    {
+      // Tell the parent there is a quitting child (parent has a mechanism to see who quit)
+      Current->pParent->pQuitChild = Current;
       // If current proceess's parent is blocked -- SENTINEL's status is ready so it doesn't trigger the following logic
       if (Current->pParent->status == STATUS_BLOCKED_JOIN)
       {
@@ -624,13 +649,11 @@ int check_io()
 void disableInterrupts()
 {
   /* turn the interrupts OFF iff we are in kernel mode */
-  if((PSR_CURRENT_MODE & psr_get()) == 0) {
-    //not in kernel mode
-    console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
-    halt(1);
-  } else
+  if(checkKernelMode)
+  {
     /* We ARE in kernel mode */
     psr_set( psr_get() & ~PSR_CURRENT_INT );
+  }
 } /* disableInterrupts */
 
 /* TODO: Clock Handler function */
@@ -655,5 +678,22 @@ void DebugConsole(char *format, ...)
       va_start(argptr, format);
       console(format, argptr);
       va_end(argptr);
+   }
+}
+
+/* ---------------------------------------------------------
+   Name - checkKernelMode
+   Purpose - Halts if we are not in kernel mode, else return 1
+   Parameters - none
+   Returns - 1 if we are in kernel mode
+   Side Effects -
+   ---------------------------------------------------------*/
+void checkKernelMode()
+{
+   if((PSR_CURRENT_MODE & psr_get()) == 0) 
+   {
+    //not in kernel mode
+    console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
+    halt(1);
    }
 }
