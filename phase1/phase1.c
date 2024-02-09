@@ -335,6 +335,7 @@ int join(int *status)
       childPid = Current->pQuitChild->pid;      // Get quitting child's pid
 
       memset(Current->pQuitChild, 0, sizeof(proc_struct));  // Reset pQuitChild back to 0 (clean up)
+      --numProc;     // Decrement number of processes
    }
    return childPid;  // Return quitting child's pid
 
@@ -395,7 +396,12 @@ void quit(int code)
          AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent);      // Add parent to ready list
       }
    }
-   numProc--;                 // Decrement the number of active processes
+   else
+   {
+      Current->status = STATUS_EMPTY;
+      --numProc;                          // Decrement the number of active processes
+   }
+   
    dispatcher();
 } /* quit */
 
@@ -625,13 +631,15 @@ static void check_deadlock()
    // Check number of processes
    if (numProc == 1)
    {
-      // If there is only one active process, me, 
+      // If there is only one active process, me,
+      printf("All processes complete.\n"); 
       // halt(0)
       halt(0);
    }
    else
    {
       // otherwise halt(1)
+      printf("DEADLOCK DETECTED.\n");
       halt(1);
    }
 } /* check_deadlock */
