@@ -24,6 +24,7 @@ void DebugConsole(char *format, ...);
 static void check_deadlock();
 int check_io();                                    // Dummy function for future phase
 void checkKernelMode();                             // Check if we're in kernel mode
+proc_ptr GetNextReadyProc();
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -209,6 +210,8 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    // Sets stack size and initial process status
    ProcTable[proc_slot].stacksize = stacksize;
    ProcTable[proc_slot].status = STATUS_READY;  // Set the process status to READY
+
+   
    
    // Initialize context for this process with the 'launch' function as the entry point
    context_init(&(ProcTable[proc_slot].state), psr_get(),
@@ -224,6 +227,22 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    // Increment number of currently active processes (note: process must utilize quit() function for numProc to be decremented)
    ++numProc;
 
+ /*  // Does the process have a parent?
+   if (ProcTable[proc_slot].pParent != NULL)
+   {  
+      // Does the process's child have a higher priority?
+      if (ProcTable[proc_slot].pParent->priority < ProcTable[proc_slot].status)
+      {
+         // If so, is the parent's status RUNNING?
+         if (ProcTable[proc_slot].pParent->status == STATUS_RUNNING)
+         {
+            // Put the parent back on the Ready List
+            ProcTable[proc_slot].pParent->status == STATUS_READY;
+            AddToList(&ReadyList[priority-1], &ProcTable[proc_slot].pParent);
+         }
+      }
+   }
+   */
    // dispatcher
    /* call dispatcher dispatcher(); which will transition the processing
     * to whichever process needs to run next based on the scheduling algorithm 
@@ -295,7 +314,13 @@ int join(int *status)
    // Check if we're in kernel mode
    checkKernelMode();
 
-    // Check if the process has any children
+   // Check if the process has any children
+   // This code might be redundant?
+   if (Current->pQuitChild != NULL)
+   {
+      //Current->status = STATUS_BLOCKED_JOIN;
+      //dispatcher();
+   }
    /* int hasChildren = 0;
     for (int i = 0; i < MAXPROC; i++) {
         if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) 
@@ -351,7 +376,7 @@ int join(int *status)
 //    if (is_zapped()) {
 //        return -1;
 //    }
-   return 0; // Should not reach here, added to suppress compiler warning
+   //return 0; // Should not reach here, added to suppress compiler warning
 } /* join */ 
 
 
@@ -405,6 +430,47 @@ void quit(int code)
    dispatcher();
 } /* quit */
 
+/* ------------------------------------------------------------------------
+   Name - dispatcher
+   Purpose - dispatches ready processes.  The process with the highest
+             priority (the first on the ready list) is scheduled to
+             run.  The old process is swapped out and the new process
+             swapped in.
+   Parameters - none
+   Returns - nothing
+   Side Effects - the context of the machine is changed
+   ----------------------------------------------------------------------- */
+void dispatcher(void) {
+    proc_ptr next_process;
+    context *pPrevContext=NULL;
+
+    // TODO: Check if current process can continue running - DONE - implemented in GetNextReadyProc
+    // Has process been time-sliced?
+    // Has process been blocked?
+    // Is process still the highest priority among READY processes?
+      // If not, it has to go back on the ready list
+
+   // Handle case where child is higher priority than parent that still needs to run
+   // Check if the parent process of the next process is still running
+
+    // Find the next process to run (returns current process or new process)
+    next_process = GetNextReadyProc();
+
+    // Is the process changing
+    if (next_process != Current)
+    {
+      // If there is a currently running process
+      if (Current != NULL)
+      {  
+         pPrevContext = &Current->state; // Populate pPrevContext with current state
+      }
+         Current = next_process; // Assign Current to new process
+         Current->status = STATUS_RUNNING; // Change the current status to running
+         // Set old status to blocked?
+         context_switch(pPrevContext, &Current->state); // switch contexts to new process
+    }
+      // NOTE: First context switch from NULL handled in fork1
+} /* dispatcher *
 
 /* ------------------------------------------------------------------------
    Name - PopList()
@@ -522,15 +588,28 @@ proc_ptr GetNextReadyProc()
    if (Current != NULL && Current->status == STATUS_RUNNING)
    {  
       nextProc = Current;
+
+      
       // Go through the ready list and see if any process is higher priority than Current (if highest priority, won't check)
       for (int i = 0; i <= Current->priority-1; ++i)
       {
-         if (ReadyList[i].count > 0)
+         if (ReadyList[i].count > 0) // If there is and it is not it's child,
          {
-            // If there is, look for new process
+            // If there is, ensure it's not the child of current
+            if (ReadyList[i].pHead->pParent == Current)
+            {
+               return Current;
+            }
+            // look for new process
             lookForNewProcess = 1;
          }
       }
+   }
+   // If process is quitting
+   else if (Current != NULL && Current->status == STATUS_QUIT)
+   {
+      // return its parent
+      return Current->pParent;
    }
    else
    {
@@ -538,61 +617,37 @@ proc_ptr GetNextReadyProc()
    }
 
    if (lookForNewProcess)
-   {
+   {  
       // pull next entry from the ReadyList
       for (int i = 1; i <= SENTINELPRIORITY; ++i)
       {
          // if there is an entry for this priority, get the first one (goes from 1 to 6)
          if (ReadyList[i-1].count > 0)
          {
-            // get the next ready item of the Ready List (pop it off the list and return)
-            nextProc = PopList(&ReadyList[i-1]);
-
-            return nextProc;
+            // If this is start1
+            if (ReadyList[i-1].pHead->pid == 2)
+            {
+               nextProc = PopList(&ReadyList[i-1]);
+               return nextProc;
+            }
+            // If the next ready process is not the child of the current process
+            else if (ReadyList[i-1].pHead->pParent != Current)
+            {
+               nextProc = PopList(&ReadyList[i-1]);
+               return nextProc;
+            }
+            // If the next ready item is the child of the current process and the current process status is not running
+            else if (ReadyList[i-1].pHead->pParent == Current && ReadyList[i-1].pHead->pParent->status != STATUS_RUNNING)
+            {
+               // get the next ready item of the Ready List (pop it off the list and return)
+               nextProc = PopList(&ReadyList[i-1]);
+               return nextProc;
+            }
          }
       }      
    }
    return nextProc;
 }
-
-/* ------------------------------------------------------------------------
-   Name - dispatcher
-   Purpose - dispatches ready processes.  The process with the highest
-             priority (the first on the ready list) is scheduled to
-             run.  The old process is swapped out and the new process
-             swapped in.
-   Parameters - none
-   Returns - nothing
-   Side Effects - the context of the machine is changed
-   ----------------------------------------------------------------------- */
-void dispatcher(void) {
-    proc_ptr next_process;
-    context *pPrevContext=NULL;
-
-    // TODO: Check if current process can continue running - DONE - implemented in GetNextReadyProc
-    // Has process been time-sliced?
-    // Has process been blocked?
-    // Is process still the highest priority among READY processes?
-      // If not, it has to go back on the ready list
-
-    // Find the next process to run (returns current process or new process)
-    next_process = GetNextReadyProc();
-
-    // Is the process changing
-    if (next_process != Current)
-    {
-      // If there is a currently running process
-      if (Current != NULL)
-      { 
-         pPrevContext = &Current->state; // Populate pPrevContext with current state
-      }
-         Current = next_process; // Assign Current to new process
-         Current->status = STATUS_RUNNING; // Change the current status to running
-         // context_switch poops itself when switching from start1 back to sentinel
-         context_switch(pPrevContext, &Current->state); // Change the current status to running
-    }
-      // NOTE: First context switch from NULL handled in fork1
-} /* dispatcher *
 
 
 /* ------------------------------------------------------------------------
