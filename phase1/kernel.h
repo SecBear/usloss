@@ -16,12 +16,10 @@ typedef struct
 struct proc_struct {
    proc_ptr       next_proc_ptr;
    proc_ptr       prev_proc_ptr;
-   proc_ptr       pChild;
-   proc_ptr       next_sibling_ptr;
-   proc_ptr       prev_sibling_ptr;
-   proc_ptr       pParent;  // Parent process 
 
-   ProcList       children;         // List of children
+   proc_ptr       pNextSibling;
+   proc_ptr       pPrevSibling;
+   proc_ptr       pParent;  // Parent process 
 
    char           name[MAXNAME];     /* process's name */
    char           start_arg[MAXARG]; /* args passed to process */
@@ -35,9 +33,9 @@ struct proc_struct {
 
    /* other fields as needed... */
    int            exitCode;          // Exit status of the process
-   proc_ptr       pQuitChild;         // Pointer of quitting child - indicating if a child has quit
-   // int            childStatus;       // Exit status of the quitting child
-   // int            childPid;          // PID of the quitting child
+   // proc_ptr       pQuitChild;         // Pointer of quitting child - indicating if a child has quit
+   
+   ProcList       children;         // List of children
 };
 
 // Can use this to check kernel mode

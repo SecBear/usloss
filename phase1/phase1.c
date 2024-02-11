@@ -25,6 +25,9 @@ static void check_deadlock();
 int check_io();                                    // Dummy function for future phase
 void checkKernelMode();                             // Check if we're in kernel mode
 proc_ptr GetNextReadyProc();
+void pcbClean();
+void removeFromProcList(ProcList* list, short pid);   // for use in quit() function to remove children from children lists
+
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -36,6 +39,7 @@ int debugflag = 1;
 proc_struct ProcTable[MAXPROC];  // Just an array that can hold 50 processes
 
 /* Process lists  */
+
 
 /* Processes */
 proc_ptr Current;                      // current process ID
@@ -211,6 +215,19 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ProcTable[proc_slot].stacksize = stacksize;
    ProcTable[proc_slot].status = STATUS_READY;  // Set the process status to READY
 
+
+   /* CHILDREN */
+   // Allocates memory for the child list
+   ProcTable[proc_slot].children.pHead = NULL;
+   ProcTable[proc_slot].children.pTail = NULL;
+   ProcTable[proc_slot].children.count = 0;
+
+   // If the new process has a parent, add it to the parent's child list
+   if (ProcTable[proc_slot].pParent != NULL) 
+   {
+      // Add the new process to the parent's child list
+      AddToList(&(ProcTable[proc_slot].pParent->children), &ProcTable[proc_slot]);
+   }
    
    
    // Initialize context for this process with the 'launch' function as the entry point
@@ -314,69 +331,58 @@ int join(int *status)
    // Check if we're in kernel mode
    checkKernelMode();
 
-   // Check if the process has any children
-   // This code might be redundant?
-   if (Current->pQuitChild != NULL)
+   // Check if the process has been zapped while waiting for a child to quit
+  /* if (is_zapped())
    {
-      //Current->status = STATUS_BLOCKED_JOIN;
-      //dispatcher();
+      return -1;
+   }*/
+
+   // Check if the process has any children
+   if (Current->children.count == 0)
+   {
+      // if no children, return -2
+      // console("Error: join() called with no children - join()\n");
+      return -2;
    }
-   /* int hasChildren = 0;
-    for (int i = 0; i < MAXPROC; i++) {
-        if (ProcTable[i].parent_proc_ptr == Current && ProcTable[i].status != UNUSED) 
-        {
-            hasChildren = 1; // Found a child
 
-            // If process is a zombie
-            if (ProcTable[i].status == ZOMBIE) 
-            {
-                // Child has quit but not been joined
-                *status = ProcTable[i].exitStatus; // Retrieve child's exit status
-                int childPid = ProcTable[i].pid;
-                // Clean up the child process
-                ProcTable[i].status = UNUSED;
-                ProcTable[i].parent_proc_ptr = NULL; // Reset parent pointer
-                return childPid; // Return the child's PID
-            }
-        }
-    }
-   
-    if (!hasChildren) {
-        return -2; // Process has no children
-    }
-   */
+   // Iterate through the child list of the parent process
+   proc_ptr child = Current->children.pHead;
+   while (child != NULL)
+   {
+      // Check if the child is in the quitting state
+      if (child->status == STATUS_QUIT)
+      {
+         // Obtain the exit code from the child
+         if (status != NULL)
+         {
+            *status = child->exitCode;
+         }
 
-   // HAVE any children quit yet?
+         // Remove children from lists (quit should have removed it from ready list)
+         removeFromProcList(&(Current->children), child); // Remove child from parent's children list
+         
 
-    // No child has quit yet, block the parent process
+         // Grab the child's pid before cleaining PCB
+         childPid = child->pid;
+
+         // Clean the child's PCB
+         //pcbClean(child);
+
+         // Return pid of the terminated child
+         return childPid;
+      }
+
+      // Move to the next child in the list
+      child = child->pNextSibling;
+   }
+
+    // No child has quit before join is called, block the parent process
     Current->status = STATUS_BLOCKED_JOIN;
     dispatcher(); // Switch to another process
 
-   // WHO QUIT?? get their exit code. Empty their slot in the proc table.
-   // Clean up after your children
-   if (Current->pQuitChild != NULL)
-   {
-      *status = Current->pQuitChild->exitCode;  // Get quitting child's exit code
-      childPid = Current->pQuitChild->pid;      // Get quitting child's pid
-
-      memset(Current->pQuitChild, 0, sizeof(proc_struct));  // Reset pQuitChild back to 0 (clean up)
-      --numProc;     // Decrement number of processes
-   }
-   return childPid;  // Return quitting child's pid
-
-    // Once unblocked, check if it was due to a child quitting
-    /*if (Current->childQuit) {
-        *status = Current->childStatus; // Retrieve the child's exit status from the parent's PCB
-        int childPid = Current->childPid; // Retrieve the child's PID from the parent's PCB
-        Current->childQuit = 0; // Reset the childQuit flag
-        return childPid; // Return the child's PID
-    } */
-
-    // If the process was zapped while waiting - TEMPORARILY UNCOMMENTED FOR TESTING
-//    if (is_zapped()) {
-//        return -1;
-//    }
-   //return 0; // Should not reach here, added to suppress compiler warning
+   // After being unblocked, check again for any quitting child processes
+   return join(status);
+  
 } /* join */ 
 
 
@@ -385,6 +391,10 @@ int join(int *status)
    Purpose - Stops the child process and notifies the parent of the death by
              putting child quit info on the parents child completion code
              list.
+
+   USES pcbClean - WHICH WIPES THE PCB ENTIRELY (EXIT STATUS IS REDUNDANT)
+   might change this later
+
    Parameters - the code to return to the grieving parent
    Returns - nothing
    Side Effects - changes the parent of pid child completion status list.
@@ -394,25 +404,56 @@ void quit(int code)
    // Check if we're in kernel mode
    checkKernelMode();
 
-   // Does process have children?
-      // if so, HALT USLOSS with appropriate error message
-
    // Clean up the PCB (a.k.a. proc_struct or process table entry) (not entirely because its paremtn may want to join it later)
       // Two cases:
-         // 1. Parent has already done a join
+         // 1. Parent has already done a join - join returns what?
          // 2. Parent has not done a join yet
       // Unblock processes that zapped this process
       // May have children who have quit() and completely clean up the PCBs for these zombie children
+
+   // Check if process has quitting child 
+   proc_ptr child = Current->children.pHead;
+   while (child != NULL)
+   {
+      if (child->status == STATUS_QUIT)
+      {
+         // Anakin Skywalker
+         // Remove child from ready list
+         removeFromProcList(&ReadyList[child->priority-1], child);   // remove it from process list
+         // Clear child from the ProcTable (could make this a standalone function)
+         for (int i = 1; i < MAXPROC; i++)
+         {
+            if (ProcTable[i].pid == child->pid)
+            {
+               // Clear the process entry in the ProcTable
+               memset(&ProcTable[i], 0, sizeof(proc_struct));
+            }
+         }
+         // Clean child's PCB ? (or did memset take care of that?)
+         //pcbClean(child);
+      }
+      // Move to next child
+      child = child->pNextSibling;
+   }
+
    p1_quit(Current->pid);
 
+   // Check if process has already quit
+   if (Current->status == STATUS_EMPTY)   // Check if process has already quit
+   {  
+      // Should never see this code if PCB cleanup is working properly
+      console("Warning: Quitting process has already quit, calling dispatcher p quit()\n");
+      dispatcher();  // If so, run dispatcher
+   } 
+   
    Current->status = STATUS_QUIT;   // Marked for death (quit) 
    Current->exitCode = code;        // save exit code 
-
+   
    // If process has a parent
    if (Current->pParent != NULL)
    {
-      // Tell the parent there is a quitting child (parent has a mechanism to see who quit)
-      Current->pParent->pQuitChild = Current;
+      // Tell the parent there is a quitting child (Done by setting status to STATUS_QUIT, as join looks for this)
+
       // If current proceess's parent is blocked -- SENTINEL's status is ready so it doesn't trigger the following logic
       if (Current->pParent->status == STATUS_BLOCKED_JOIN)
       {
@@ -424,9 +465,23 @@ void quit(int code)
    else
    {
       Current->status = STATUS_EMPTY;
-      --numProc;                          // Decrement the number of active processes
+      // Remove process from ready list
+      removeFromProcList(&ReadyList[Current->priority-1], Current);   // remove it from ready list
+      // Remove process from proc list
+       for (int i = 1; i < MAXPROC; i++)
+         {
+            if (ProcTable[i].pid == Current->pid)
+            {
+               // Clear the process entry in the ProcTable
+               memset(&ProcTable[i], 0, sizeof(proc_struct));
+            }
+         }
+         // Clean current's PCB ? (or did memset take care of that?)
+         //pcbClean(current);
    }
-   
+
+   --numProc;     // Decrement number of active processes
+
    dispatcher();
 } /* quit */
 
@@ -526,13 +581,13 @@ int AddToList(ProcList *list, proc_ptr process)
    }
 
    // Update the new process's pointers 
-   process->next_proc_ptr = NULL;         // The new process will be the last one, so its next pointer is NULL
-   process->prev_proc_ptr = list->pTail;  // Its previous pointer points to the current tail
+   process->pNextSibling = NULL;         // The new process will be the last one, so its next pointer is NULL
+   process->pPrevSibling = list->pTail;  // Its previous pointer points to the current tail
 
    if (list->pTail != NULL)
    {
       // Update the current tail's next pointer to the new process if list is not empty
-      list->pTail->next_proc_ptr = process;
+      list->pTail->pNextSibling = process;
    }
 
    // The list's new tail is the new process
@@ -759,4 +814,58 @@ void checkKernelMode()
     console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
     halt(1);
    }
+}
+
+/* ---------------------------------------------------------
+   Name - pcbClean
+   Purpose - Cleans up the pcb of the process
+   Parameters - none
+   Returns - none
+   Side Effects -
+   ---------------------------------------------------------*/
+void pcbClean(proc_ptr pcb)
+{
+   if (pcb != NULL)
+   {
+      free(pcb);  // Free the pcb stack
+      memset(pcb, 0, sizeof(struct proc_struct)); // Clear the content of the PCB structure
+      free(pcb);  // free the memory allocated for the PCB
+   }
+}
+
+// Function to remove a process from the ProcList
+void removeFromProcList(ProcList* list, short pid) {
+    proc_ptr current = list->pHead;
+    proc_ptr prev = NULL;
+
+    // Traverse the list to find the process with the given PID
+    while (current != NULL && current->pid != pid) {
+        prev = current;
+        current = current->pNextSibling;
+    }
+
+    // If the process with the given PID is not found
+    if (current == NULL) {
+        return;
+    }
+
+    // Update the pointers to remove the process from the list
+    if (prev == NULL) {
+        // If the process to be removed is the head of the list
+        list->pHead = current->pNextSibling;
+    } else {
+        // If the process to be removed is not the head of the list
+        prev->pNextSibling = current->pNextSibling;
+    }
+
+    // Update the tail pointer if necessary
+    if (current == list->pTail) {
+        list->pTail = prev;
+    }
+
+    // Free the memory allocated for the process
+    free(current);
+    
+    // Update the count of processes in the list
+    list->count--;
 }
