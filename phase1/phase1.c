@@ -26,7 +26,7 @@ int check_io();                                    // Dummy function for future 
 void checkKernelMode();                             // Check if we're in kernel mode
 proc_ptr GetNextReadyProc();
 void pcbClean();
-void removeFromProcList(ProcList* list, short pid);   // for use in quit() function to remove children from children lists
+int RemoveFromList(ProcList *list, proc_ptr process);   // for use in quit() function to remove children from children lists
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -359,7 +359,7 @@ int join(int *status)
          }
 
          // Remove children from lists (quit should have removed it from ready list)
-         removeFromProcList(&(Current->children), child); // Remove child from parent's children list
+         RemoveFromList(&(Current->children), child); // Remove child from parent's children list
          
 
          // Grab the child's pid before cleaining PCB
@@ -411,7 +411,7 @@ void quit(int code)
       // Unblock processes that zapped this process
       // May have children who have quit() and completely clean up the PCBs for these zombie children
 
-   // Check if process has quitting child 
+   // Check if process has quitting child // XXp1 not on Start1's Child list
    proc_ptr child = Current->children.pHead;
    while (child != NULL)
    {
@@ -419,7 +419,7 @@ void quit(int code)
       {
          // Anakin Skywalker
          // Remove child from ready list
-         removeFromProcList(&ReadyList[child->priority-1], child);   // remove it from process list
+         RemoveFromList(&ReadyList[child->priority-1], child);   // remove it from process list
          // Clear child from the ProcTable (could make this a standalone function)
          for (int i = 1; i < MAXPROC; i++)
          {
@@ -461,12 +461,17 @@ void quit(int code)
          Current->pParent->status = STATUS_READY;             // Set parent status to ready
          AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent);      // Add parent to ready list
       }
+
    }
    else
    {
       Current->status = STATUS_EMPTY;
-      // Remove process from ready list
-      removeFromProcList(&ReadyList[Current->priority-1], Current);   // remove it from ready list
+      
+      // Remove process from ready list unless we're sentinel
+      if (Current->pid != 2)
+      {
+         RemoveFromList(&ReadyList[Current->priority-1], Current);   // remove it from ready list // THIS DIDN't work with start1
+      }
       // Remove process from proc list
        for (int i = 1; i < MAXPROC; i++)
          {
@@ -480,7 +485,7 @@ void quit(int code)
          //pcbClean(current);
    }
 
-   --numProc;     // Decrement number of active processes
+   --numProc;     // Decrement number of active processes 
 
    dispatcher();
 } /* quit */
@@ -547,7 +552,7 @@ proc_ptr PopList(ProcList *list)
    
    // Get the oldest item and replace list's head
    proc_ptr poppedProc = list->pHead;  // get the head of the list (oldest item)
-   list->pHead = poppedProc->next_proc_ptr; // update the head to the next process
+   list->pHead = poppedProc->pNextSibling; // update the head to the next process
 
    // Update head/tail pointers
    if (list->pHead == NULL)
@@ -556,8 +561,15 @@ proc_ptr PopList(ProcList *list)
    }
    else
    {
-      list->pHead->prev_proc_ptr = NULL; // Update the new head's previous pointer to NULL
+      list->pHead->pPrevSibling = NULL; // Update the new head's previous pointer to NULL
    }
+
+   // Update the popped process's pointers
+   if (poppedProc->pNextSibling != NULL)
+   {
+      poppedProc->pNextSibling->pPrevSibling = NULL; // Update the next process's previous pointer to NULL
+   }
+
 
    // Decrement the count of processes in the list
    list->count--;
@@ -580,14 +592,29 @@ int AddToList(ProcList *list, proc_ptr process)
       return 0;
    }
 
+   // Check if process is already on the ReadyList
+   proc_ptr current = list->pHead;
+   if (current != NULL)
+   {
+      if (current->pid == process->pid)
+      {
+         // Process is already in the list
+         return 0;
+      }
+      // would update current to sibling, but if the new proc is a sibling it won't be added
+    }
+
    // Update the new process's pointers 
    process->pNextSibling = NULL;         // The new process will be the last one, so its next pointer is NULL
    process->pPrevSibling = list->pTail;  // Its previous pointer points to the current tail
 
    if (list->pTail != NULL)
    {
-      // Update the current tail's next pointer to the new process if list is not empty
-      list->pTail->pNextSibling = process;
+      // Update the current tail's next pointer to the new process if list is not empty and if it is not already updated
+      if (list->pTail->pNextSibling != process)
+      {
+         list->pTail->pNextSibling = process;
+      }
    }
 
    // The list's new tail is the new process
@@ -661,11 +688,13 @@ proc_ptr GetNextReadyProc()
       }
    }
    // If process is quitting
-   else if (Current != NULL && Current->status == STATUS_QUIT)
-   {
+   //else if (Current != NULL && Current->status == STATUS_QUIT)
+   //{
+      // Remove it from ready list
+
       // return its parent
-      return Current->pParent;
-   }
+     // return Current->pParent;
+   //}
    else
    {
       lookForNewProcess = 1;
@@ -701,8 +730,9 @@ proc_ptr GetNextReadyProc()
          }
       }      
    }
-   return nextProc;
+   return nextProc; 
 }
+
 
 
 /* ------------------------------------------------------------------------
@@ -833,39 +863,45 @@ void pcbClean(proc_ptr pcb)
    }
 }
 
-// Function to remove a process from the ProcList
-void removeFromProcList(ProcList* list, short pid) {
-    proc_ptr current = list->pHead;
-    proc_ptr prev = NULL;
-
-    // Traverse the list to find the process with the given PID
-    while (current != NULL && current->pid != pid) {
-        prev = current;
-        current = current->pNextSibling;
+int RemoveFromList(ProcList* list, proc_ptr process) 
+{
+    if (process == NULL) 
+    {
+        // Invalid process pointer
+        return 0;
     }
 
-    // If the process with the given PID is not found
-    if (current == NULL) {
-        return;
+    // Check if the process to remove is the head of the list
+    if (list->pHead == process) 
+    {
+        // Update the head to point to the next process
+        list->pHead = process->pNextSibling;
     }
 
-    // Update the pointers to remove the process from the list
-    if (prev == NULL) {
-        // If the process to be removed is the head of the list
-        list->pHead = current->pNextSibling;
-    } else {
-        // If the process to be removed is not the head of the list
-        prev->pNextSibling = current->pNextSibling;
+    // Check if the process to remove is the tail of the list
+    if (list->pTail == process) 
+    {
+        // Update the tail to point to the previous process
+        list->pTail = process->pPrevSibling;
     }
 
-    // Update the tail pointer if necessary
-    if (current == list->pTail) {
-        list->pTail = prev;
+    // Update the sibling pointers of adjacent processes
+    if (process->pNextSibling != NULL) 
+    {
+        process->pNextSibling->pPrevSibling = process->pPrevSibling;
+    }
+    if (process->pPrevSibling != NULL) 
+    {
+        process->pPrevSibling->pNextSibling = process->pNextSibling;
     }
 
-    // Free the memory allocated for the process
-    free(current);
-    
-    // Update the count of processes in the list
+    // Reset the removed process's pointers
+    process->pNextSibling = NULL;
+    process->pPrevSibling = NULL;
+
+    // Decrement the count of processes in the list
     list->count--;
+
+    // Return 1 for success
+    return 1;
 }
