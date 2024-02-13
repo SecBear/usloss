@@ -36,6 +36,8 @@ struct proc_struct {
    ProcList       children;         // List of children
    int            tsStart;          // Start time of process' slice
    int            cpu_time;         // How much time (in milliseconds) has the process had on CPU
+   int            zapped;           // process zapped or not?
+   ProcList       zappers;          // list of processes that have zapped this process
 };
 
 // Can use this to check kernel mode
@@ -64,8 +66,7 @@ union psr_values {
 #define STATUS_BLOCKED_JOIN   2
 #define STATUS_RUNNING        3
 #define STATUS_QUIT           4
-#define STATUS_ZAPPED         5
-
+#define STATUS_BLOCKED_ZAP    5
 
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5

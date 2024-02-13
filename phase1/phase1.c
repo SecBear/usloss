@@ -27,6 +27,7 @@ void checkKernelMode();                             // Check if we're in kernel 
 proc_ptr GetNextReadyProc();
 void pcbClean();
 int RemoveFromList(ProcList *list, proc_ptr process);   // for use in quit() function to remove children from children lists
+int getpid(void);                                  // Get pid of currently running process
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -318,10 +319,10 @@ int join(int *status)
    checkKernelMode();
 
    // Check if the process has been zapped while waiting for a child to quit
-  /* if (is_zapped())
+   if (is_zapped())
    {
       return -1;
-   }*/
+   }
 
    // Check if the process has any children
    if (Current->children.count == 0)
@@ -397,7 +398,7 @@ void quit(int code)
       // Unblock processes that zapped this process
       // May have children who have quit() and completely clean up the PCBs for these zombie children
 
-   // Check if process has quitting child // XXp1 not on Start1's Child list
+   // CHILDREN - Check if process has quitting children
    proc_ptr child = Current->children.pHead;
    while (child != NULL)
    {
@@ -420,6 +421,27 @@ void quit(int code)
       }
       // Move to next child
       child = child->pNextSibling;
+   }
+
+   // ZAP - Check if Current process has been zapped
+   if (Current->zapped)
+   {  
+      // Iterate through Current's list of zappers (processes who've zapped Current)
+      proc_ptr zapper = Current->zappers.pHead;
+      while (zapper != NULL)
+      {
+         if (Current->zapped)
+         {
+            // Wake up the zappers
+            if (zapper->status == STATUS_BLOCKED_ZAP)
+            {
+               zapper->status == STATUS_READY;                          // Set zapper status to ready
+               AddToList(&ReadyList[zapper->priority-1], zapper);       // Add zapper to ready list
+               RemoveFromList(&Current->zappers, zapper);               // Remove zapper from Current's zapper list
+            }
+         }
+         zapper = zapper->pNextSibling;   // Move to next zapper
+      }
    }
 
    p1_quit(Current->pid);
@@ -489,22 +511,32 @@ void quit(int code)
    ----------------------------------------------------------------------- */
 int zap(int pid)
 {
+   int result = 0;
+   proc_ptr pProcToZap;
    checkKernelMode();   // Check we're in kernel mode
 
-   if (pid == Current->pid)   // Check if process being zapped is itself
-   {
-      console("Error: process cannot zap itself\n");
+   // Check if the process is trying to zap itself
+   if (pid == Current->pid) {
+      console("Error: Process cannot zap itself\n");
+      return -1;
+   }
+
+   // Find the process to be zapped
+   proc_ptr pProcToZap = &ProcTable[pid % MAXPROC];
+   
+   // Check if the process exists
+   if (pProcToZap->status == STATUS_EMPTY) {
+      console("Error: Process does not exist\n");
       halt(1);
    }
 
-   proc_ptr process = &ProcTable[pid % MAXPROC];   // Grab process
-   if (process->status == STATUS_EMPTY)            // Check if process is empty
-   {
-      console("Error: process does not exist (status is empty) - zap()\n");
-      halt(1);
-   }
+   // Mark the process as zapped
+   pProcToZap->zapped = 1;
+   AddToList(&pProcToZap->zappers, Current); // Add current process to the zapped process's list of zappers
 
-   process->status = STATUS_ZAPPED; // Set process status to STATUS_ZAPPED, zapping the process
+   // block until process calls quit()
+   Current->status == STATUS_BLOCKED_ZAP;
+   dispatcher();
 }
 
 
@@ -954,7 +986,7 @@ int RemoveFromList(ProcList* list, proc_ptr process)
 ---------------------------------------------------------*/
 void dump_processes(void)
 {
-   proc_struct process;
+   proc_ptr process;
 
    // Collumn headers
    printf("%-5s%-8s%-10s%-15s%-8s%-10s%s\n", "PID", "Parent", "Priority", "Status", "# Kids", "CPUtime", "Name");
@@ -967,17 +999,17 @@ void dump_processes(void)
 
       // Print process information
       printf("%-5d%-8d%-10d%-15s%-8d%-10d%s\n", 
-            process.pid, 
-            process.pParent ? process.pParent->pid : -1, 
-            process.priority, 
-            process.status == STATUS_EMPTY ? "EMPTY" :
-            process.status == STATUS_READY ? "READY" :
-            process.status == STATUS_RUNNING ? "RUNNING" :
-            process.status == STATUS_BLOCKED_JOIN ? "BLOCKED" :
+            process->pid, 
+            process->pParent ? process->pParent->pid : -1, 
+            process->priority, 
+            process->status == STATUS_EMPTY ? "EMPTY" :
+            process->status == STATUS_READY ? "READY" :
+            process->status == STATUS_RUNNING ? "RUNNING" :
+            process->status == STATUS_BLOCKED_JOIN ? "BLOCKED" :
             "UNKNOWN",
-            process.children.count,
-            process.cpu_time,
-            process.name); 
+            process->children.count,
+            process->cpu_time,
+            process->name); 
    }
 }
 
@@ -986,9 +1018,66 @@ int is_zapped(void)
    checkKernelMode();   // Ensure we are in kernel mode
 
    // Return 1 if Current status is STATUS_ZAPPED, otherwise return 0
-   if (Current->status == STATUS_ZAPPED)
+   if (Current->zapped)
    {
       return 1;
    }
    else return 0;
+}
+
+// Returns pid from current process
+int getpid(void)
+{
+   int pid = Current->pid; // Grab pid from current process
+   return pid; // Return it
+}
+
+// Blocks current process (new status must be larger than 10)
+int block_me(int new_status)
+{
+   int result = 0;
+
+   // validate the parameter
+   if (new_status <= 10)
+   {
+      console("Error: block_me called with new_status less than or equal to 10 block_me()\n");
+      halt(1);
+   }
+
+   // set new status and call dispatcher
+   Current->status = new_status;
+   dispatcher();
+   
+   return result;
+}/* block me */
+
+int unblock_proc(int pid)
+{
+   int result = -1;
+   int procSlot;
+   proc_ptr pProcToUnblock;
+
+   // validate pid
+   if (pid == -1 || pid > MAXPROC)
+   {
+      console("Error: unblock_proc() called with invalid pid: %d", pid);
+      halt(1);
+   }
+
+   procSlot = pid % MAXPROC;
+   pProcToUnblock = &ProcTable[procSlot];
+
+   // check its current status (ensure it's not 10 or below)
+   if (pProcToUnblock->status <= 10)
+   {
+      console("Error: unblock_proc() called with status less than or equal to 10\n");
+      halt(1);
+   }
+
+   // Set status to ready and Add to ready list
+   pProcToUnblock->status = STATUS_READY; // Set ready status
+   AddToList(&ReadyList[pProcToUnblock->priority-1], pProcToUnblock); // Add to ready list
+   dispatcher();  // anytime you make a change to ready list, dispatch
+
+   return result;
 }
