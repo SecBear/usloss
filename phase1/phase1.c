@@ -526,7 +526,7 @@ int zap(int pid)
    }
 
    // Find the process to be zapped
-   proc_ptr pProcToZap = &ProcTable[pid % MAXPROC];
+   pProcToZap = &ProcTable[pid % MAXPROC];
    
    // Check if the process exists
    if (pProcToZap->status == STATUS_EMPTY) {
@@ -999,7 +999,7 @@ void dump_processes(void)
    // Traverse through each process
    for (int i = 0; i < MAXPROC; ++i)
    {
-      process = ProcTable[i];
+      process = &ProcTable[i];
 
       // Print process information
       printf("%-5d%-8d%-10d%-15s%-8d%-10d%s\n", 
