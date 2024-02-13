@@ -197,6 +197,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ProcTable[proc_slot].start_func = f;      // Assign the start function address for the process to f
    ProcTable[proc_slot].priority = priority; // Assign Process Priority
    ProcTable[proc_slot].pParent = Current;   // Store current in pParent
+   ProcTable[proc_slot].cpu_time = 0;        // Initialize CPU time to 0
 
    if ( arg == NULL )                        // Check if arguments need to be passed
       ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
