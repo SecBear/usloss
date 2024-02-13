@@ -541,6 +541,8 @@ int zap(int pid)
    // block until process calls quit()
    Current->status == STATUS_BLOCKED_ZAP;
    dispatcher();
+
+   return result;
 }
 
 
@@ -577,6 +579,12 @@ void dispatcher(void) {
       // If there is a currently running process
       if (Current != NULL)
       {  
+         // If the current process is still running
+         if (Current->status == STATUS_RUNNING)
+         {
+            Current->status = STATUS_READY; // Set current status to ready
+            AddToList(&ReadyList[Current->priority-1], Current); // Add process to ready list
+         }
          pPrevContext = &Current->state; // Populate pPrevContext with current state
       }
          Current = next_process; // Assign Current to new process
@@ -726,7 +734,6 @@ proc_ptr GetNextReadyProc()
    if (Current != NULL && Current->status == STATUS_RUNNING)
    {  
       nextProc = Current;
-
       
       // Go through the ready list and see if any process is higher priority than Current (if highest priority, won't check)
       for (int i = 0; i <= Current->priority-1; ++i)
@@ -734,10 +741,10 @@ proc_ptr GetNextReadyProc()
          if (ReadyList[i].count > 0) // If there is and it is not it's child,
          {
             // If there is, ensure it's not the child of current
-            if (ReadyList[i].pHead->pParent == Current)
+            /*if (ReadyList[i].pHead->pParent == Current)
             {
                return Current;
-            }
+            }*/
             // look for new process
             lookForNewProcess = 1;
          }
@@ -776,17 +783,33 @@ proc_ptr GetNextReadyProc()
                nextProc = PopList(&ReadyList[i-1]);
                return nextProc;
             }
-            // If the next ready item is the child of the current process and the current process status is not running
-            else if (ReadyList[i-1].pHead->pParent == Current && ReadyList[i-1].pHead->pParent->status != STATUS_RUNNING)
+            // If the next ready item is the child of the current process
+            else if (ReadyList[i-1].pHead->pParent == Current)
             {
+               // If the current process status is not running
+               if (Current->status != STATUS_RUNNING)
+               {
                // get the next ready item of the Ready List (pop it off the list and return)
                nextProc = PopList(&ReadyList[i-1]);
-               return nextProc;
+               return nextProc; 
+               }
+               // If current process status is running,
+               else if (Current->status == STATUS_RUNNING)
+               {
+                  nextProc = PopList(&ReadyList[i-1]);
+                  // add current to ready list?
+                  return nextProc;
+               }
+
             }
-         }
-      }      
-   }
+         }      
+      }
    return nextProc; 
+   }
+   else
+   {
+      return Current;
+   }
 }
 
 /* ------------------------------------------------------------------------
