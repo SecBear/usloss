@@ -86,7 +86,7 @@ void startup()
        console("startup(): initialized the Ready list\n");
 
    /* Initialize the clock interrupt handler */
-   int_vec[CLOCK_DEV] = clockHandler;
+   int_vec[CLOCK_INT] = clockHandler;
 
    /* startup a sentinel process - the background process that runs when nobody else is ready to run. The wait room if you will (busy wait). 
       we have to have this process so that we can switch control back to it from another process that terminates, is waiting for i/o, etc. 
@@ -194,6 +194,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ProcTable[proc_slot].start_func = f;      // Assign the start function address for the process to f
    ProcTable[proc_slot].priority = priority; // Assign Process Priority
    ProcTable[proc_slot].pParent = Current;   // Store current in pParent
+   ProcTable[proc_slot].cpu_time = 0;        // Initialize process cpu_time to 0
 
    if ( arg == NULL )                        // Check if arguments need to be passed
       ProcTable[proc_slot].start_arg[0] = '\0'; // If none, set the process's start_arg element to NULL
@@ -218,6 +219,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 
    /* CHILDREN */
    // Allocates memory for the child list
+   memset(&ProcTable[proc_slot].children, 0, sizeof(ProcList)); // Initialize the children list with 0
    ProcTable[proc_slot].children.pHead = NULL;
    ProcTable[proc_slot].children.pTail = NULL;
    ProcTable[proc_slot].children.count = 0;
@@ -228,7 +230,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
       // Add the new process to the parent's child list
       AddToList(&(ProcTable[proc_slot].pParent->children), &ProcTable[proc_slot]);
    }
-   
    
    // Initialize context for this process with the 'launch' function as the entry point
    context_init(&(ProcTable[proc_slot].state), psr_get(),
@@ -467,7 +468,7 @@ void quit(int code)
    {
       Current->status = STATUS_EMPTY;
       
-      // Remove process from ready list unless we're sentinel
+      // Remove process from ready list 
       if (Current->pid != 2)
       {
          RemoveFromList(&ReadyList[Current->priority-1], Current);   // remove it from ready list // THIS DIDN't work with start1
@@ -485,10 +486,42 @@ void quit(int code)
          //pcbClean(current);
    }
 
-   --numProc;     // Decrement number of active processes 
+   // Don't decrement if we're sentinel
+   if (Current->pid != 2)
+   {
+      --numProc;     // Decrement number of active processes 
+   }
 
    dispatcher();
 } /* quit */
+
+/* ------------------------------------------------------------------------
+   Name - zap
+   Purpose - zaps a process, marking it for termination
+   Parameters - process's PID
+   Returns - nothing
+   Side Effects - the context of the machine is changed
+   ----------------------------------------------------------------------- */
+int zap(int pid)
+{
+   checkKernelMode();   // Check we're in kernel mode
+
+   if (pid == Current->pid)   // Check if process being zapped is itself
+   {
+      console("Error: process cannot zap itself\n");
+      halt(1);
+   }
+
+   proc_ptr process = &ProcTable[pid % MAXPROC];   // Grab process
+   if (process->status == STATUS_EMPTY)            // Check if process is empty
+   {
+      console("Error: process does not exist (status is empty) - zap()\n");
+      halt(1);
+   }
+
+   process->status = STATUS_ZAPPED; // Set process status to STATUS_ZAPPED, zapping the process
+}
+
 
 /* ------------------------------------------------------------------------
    Name - dispatcher
@@ -503,6 +536,7 @@ void quit(int code)
 void dispatcher(void) {
     proc_ptr next_process;
     context *pPrevContext=NULL;
+    int currentClock = sys_clock();
 
     // TODO: Check if current process can continue running - DONE - implemented in GetNextReadyProc
     // Has process been time-sliced?
@@ -526,6 +560,7 @@ void dispatcher(void) {
       }
          Current = next_process; // Assign Current to new process
          Current->status = STATUS_RUNNING; // Change the current status to running
+         Current->tsStart = currentClock;  // Save start time to tsStart (time slice start)
          // Set old status to blocked?
          context_switch(pPrevContext, &Current->state); // switch contexts to new process
     }
@@ -733,8 +768,6 @@ proc_ptr GetNextReadyProc()
    return nextProc; 
 }
 
-
-
 /* ------------------------------------------------------------------------
    Name - sentinel
    Purpose - The purpose of the sentinel routine is two-fold.  One
@@ -796,19 +829,40 @@ int check_io()
    ------------------------------------------------------------------------ */
 void disableInterrupts()
 {
-  /* turn the interrupts OFF iff we are in kernel mode */
-  if(checkKernelMode)
-  {
-    /* We ARE in kernel mode */
-    psr_set( psr_get() & ~PSR_CURRENT_INT );
-  }
+   /* turn the interrupts OFF iff we are in kernel mode */
+   checkKernelMode();
+  
+   /* We ARE in kernel mode */
+   psr_set( psr_get() & ~PSR_CURRENT_INT );
+
 } /* disableInterrupts */
 
-/* TODO: Clock Handler function */
-void clockHandler()
-{
-   dispatcher();
 
+/* TODO: Clock Handler function */
+void clockHandler(int dev, void *pUnit)
+{
+   // Clock interrupt has occurred
+   // time slice (check if time is up, if so, make ready and dispatch)
+   time_slice();
+}
+
+// check if time is up, if so, make ready and dispatch
+void time_slice(void)
+{
+   // get system time
+   int currentTime = sys_clock();   // sys_clock() returns time in microseconds
+
+   // subtract current time from process time 
+   if (currentTime - Current->tsStart > 80000) // 80000 microseconds is 80 milliseconds
+   {
+      // if greater than 80ms, time's up!
+      // Set process status to READY
+      Current->status = STATUS_READY;
+      // Add process back to ready list
+      AddToList(&ReadyList[Current->priority-1], Current);
+      // Call dispatcher
+      dispatcher();
+   }
 }
 
 /* ---------------------------------------------------------
@@ -904,4 +958,52 @@ int RemoveFromList(ProcList* list, proc_ptr process)
 
     // Return 1 for success
     return 1;
+}
+/* ---------------------------------------------------------
+   Name - dump_processes
+   Purpose -  For each PCB in the process table print (at a minimum) its PID, parent’s 
+              PID, priority, process status (e.g. unused, running, ready, blocked, etc.), 
+              # of children, CPU time consumed, and name
+   Parameters - none
+   Side Effects -
+---------------------------------------------------------*/
+void dump_processes(void)
+{
+   proc_struct process;
+
+   // Collumn headers
+   printf("%-5s%-8s%-10s%-15s%-8s%-10s%s\n", "PID", "Parent", "Priority", "Status", "# Kids", "CPUtime", "Name");
+
+
+   // Traverse through each process
+   for (int i = 1; i < MAXPROC; ++i)
+   {
+      process = ProcTable[i];
+
+      // Print process information
+      printf("%-5d%-8d%-10d%-15s%-8d%-10d%s\n", 
+            process.pid, 
+            process.pParent ? process.pParent->pid : -1, 
+            process.priority, 
+            process.status == STATUS_EMPTY ? "EMPTY" :
+            process.status == STATUS_READY ? "READY" :
+            process.status == STATUS_RUNNING ? "RUNNING" :
+            process.status == STATUS_BLOCKED_JOIN ? "BLOCKED" :
+            "UNKNOWN",
+            process.children.count,
+            process.cpu_time,
+            process.name); 
+   }
+}
+
+int is_zapped(void)
+{
+   checkKernelMode();   // Ensure we are in kernel mode
+
+   // Return 1 if Current status is STATUS_ZAPPED, otherwise return 0
+   if (Current->status == STATUS_ZAPPED)
+   {
+      return 1;
+   }
+   else return 0;
 }

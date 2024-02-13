@@ -32,10 +32,10 @@ struct proc_struct {
    int            status;            /* READY, BLOCKED, QUIT, etc. */
 
    /* other fields as needed... */
-   int            exitCode;          // Exit status of the process
-   // proc_ptr       pQuitChild;         // Pointer of quitting child - indicating if a child has quit
-   
+   int            exitCode;          // Exit status of the process   
    ProcList       children;         // List of children
+   int            tsStart;          // Start time of process' slice
+   int            cpu_time;         // How much time (in milliseconds) has the process had on CPU
 };
 
 // Can use this to check kernel mode
@@ -63,6 +63,7 @@ union psr_values {
 #define STATUS_BLOCKED_JOIN   2
 #define STATUS_RUNNING        3
 #define STATUS_QUIT           4
+#define STATUS_ZAPPED         5
 
 
 #define NO_CURRENT_PROCESS NULL
