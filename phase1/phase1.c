@@ -367,8 +367,12 @@ int join(int *status)
     Current->status = STATUS_BLOCKED_JOIN;
     dispatcher(); // Switch to another process
 
-   // After being unblocked, check again for any quitting child processes
-   return join(status);
+   // After being unblocked, check if we've been zapped and check again for any quitting child processes
+   if (is_zapped())
+   {
+      return -1;  // we've been zapped while blocked
+   }
+   return join(status); // check again for any quitting child processes
   
 } /* join */ 
 
@@ -1047,7 +1051,13 @@ int block_me(int new_status)
    // set new status and call dispatcher
    Current->status = new_status;
    dispatcher();
-   
+
+   // have we been zapped while blocked?
+   if (is_zapped())
+   {
+      return -1;  
+   }
+
    return result;
 }/* block me */
 
@@ -1062,6 +1072,12 @@ int unblock_proc(int pid)
    {
       console("Error: unblock_proc() called with invalid pid: %d", pid);
       halt(1);
+   }
+
+   // Check if calling process is zapped
+   if (is_zapped)
+   {
+      return -1;
    }
 
    procSlot = pid % MAXPROC;
