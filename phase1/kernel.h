@@ -58,7 +58,8 @@ union psr_values {
 // STATUSES
 #define STATUS_WAITING        -3
 #define STATUS_ZOMBIE         -2
-#define STATUS_EMPTY          0    // using this in place of UNUSED 
+#define STATUS_UNUSED         -1
+#define STATUS_EMPTY          0    
 #define STATUS_READY          1    //defined new constant as it represents status of a process that is ready to run 
 #define STATUS_BLOCKED_JOIN   2
 #define STATUS_RUNNING        3

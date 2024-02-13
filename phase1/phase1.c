@@ -68,8 +68,8 @@ void startup()
 
    /* initialize the process table */
    for (int i = 0; i < MAXPROC; i++) {
-      ProcTable[i].status = STATUS_EMPTY;   //marking each entry as empty
-      ProcTable[i].pid = STATUS_EMPTY;      //Using same constant to mark PID as empty
+      ProcTable[i].status = STATUS_EMPTY;   // marking each entry as empty
+      ProcTable[i].pid = STATUS_UNUSED;     // mark pid as -1
    }
 
    /* Initialize the Ready list, etc. */
@@ -245,22 +245,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    // Increment number of currently active processes (note: process must utilize quit() function for numProc to be decremented)
    ++numProc;
 
- /*  // Does the process have a parent?
-   if (ProcTable[proc_slot].pParent != NULL)
-   {  
-      // Does the process's child have a higher priority?
-      if (ProcTable[proc_slot].pParent->priority < ProcTable[proc_slot].status)
-      {
-         // If so, is the parent's status RUNNING?
-         if (ProcTable[proc_slot].pParent->status == STATUS_RUNNING)
-         {
-            // Put the parent back on the Ready List
-            ProcTable[proc_slot].pParent->status == STATUS_READY;
-            AddToList(&ReadyList[priority-1], &ProcTable[proc_slot].pParent);
-         }
-      }
-   }
-   */
    // dispatcher
    /* call dispatcher dispatcher(); which will transition the processing
     * to whichever process needs to run next based on the scheduling algorithm 
