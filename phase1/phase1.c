@@ -28,7 +28,7 @@ proc_ptr GetNextReadyProc();
 void pcbClean();
 int RemoveFromList(ProcList *list, proc_ptr process);   // for use in quit() function to remove children from children lists
 int getpid(void);                                  // Get pid of currently running process
-void updateCpuTime(proc_ptr process);
+int updateCpuTime(proc_ptr process);
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -449,7 +449,7 @@ void quit(int code)
             // Wake up the zappers
             if (zapper->status == STATUS_BLOCKED_ZAP)
             {
-               zapper->status == STATUS_READY;                          // Set zapper status to ready
+               zapper->status = STATUS_READY;                          // Set zapper status to ready
                AddToList(&ReadyList[zapper->priority-1], zapper);       // Add zapper to ready list
                RemoveFromList(&Current->zappers, zapper);               // Remove zapper from Current's zapper list
             }
@@ -606,7 +606,7 @@ void dispatcher(void) {
          context_switch(pPrevContext, &Current->state); // switch contexts to new process
     }
       // NOTE: First context switch from NULL handled in fork1
-} /* dispatcher *
+} /* dispatcher */
 
 /* ------------------------------------------------------------------------
    Name - PopList()
@@ -668,7 +668,7 @@ int AddToList(ProcList *list, proc_ptr process)
       return 0;
    }
 
-   // Check if process is already on the ReadyList
+   // Check if process is already on the ReadyList (only checks head atm)
    proc_ptr current = list->pHead;
    if (current != NULL)
    {
@@ -680,9 +680,13 @@ int AddToList(ProcList *list, proc_ptr process)
       // would update current to sibling, but if the new proc is a sibling it won't be added
     }
 
-   // Update the new process's pointers 
+   // If this is a new process
+   //if (process->cpu_time == 0)
+   //{
+      // Update the new process's pointers 
    process->pNextSibling = NULL;         // The new process will be the last one, so its next pointer is NULL
    process->pPrevSibling = list->pTail;  // Its previous pointer points to the current tail
+   //}
 
    if (list->pTail != NULL)
    {
@@ -900,7 +904,7 @@ void clockHandler(int dev, void *pUnit)
    checkKernelMode();
 
    // Clock interrupt has occurred
-   printf("\n-- Clock Interrupt occurred --\n\n");
+   //printf("\n-- Clock Interrupt occurred --\n\n");
    // time slice (check if time is up, if so, make ready and dispatch)
    time_slice();
 }
@@ -930,6 +934,9 @@ void time_slice(void)
       AddToList(&ReadyList[Current->priority-1], Current);
       // Call dispatcher
       dispatcher();
+
+      // Read time again (else timeUsed will always be above 80, staying in infinite loop)
+      timeUsed = readtime();
    }
    else
    {
@@ -985,7 +992,7 @@ void checkKernelMode()
 
    // if the kernel mode bit is not set, then halt
    // meaning if not in kernel mode, halt(1)
-   if (currentPsr & PSR_CURRENT_MODE == 0)
+   if ((currentPsr & PSR_CURRENT_MODE) == 0)
    {
       // not in kernel mode
       console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
@@ -1063,7 +1070,7 @@ int RemoveFromList(ProcList* list, proc_ptr process)
 void dump_processes(void)
 {
    proc_ptr process;
-   int currentTime = sys_clock(); // Get time
+   //int currentTime = sys_clock(); // Get time 
 
    // Collumn headers
    printf("%-5s%-8s%-10s%-15s%-8s%-10s%s\n", "PID", "Parent", "Priority", "Status", "# Kids", "CPUtime", "Name");
@@ -1182,7 +1189,7 @@ int unblock_proc(int pid)
 
 // Updates the cpu time for a process being taken off the CPU
 // Returns 0 if process is not running
-void updateCpuTime(proc_ptr process)
+int updateCpuTime(proc_ptr process)
 {
    int currentTime = sys_clock();   // Get system time 
 
