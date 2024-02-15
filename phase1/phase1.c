@@ -265,10 +265,11 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 /* TODO: make function*/
 /* The interrupts can then be enabled by setting the current interrupt enable 
 bit in the processor status register (see Section 3.4). */
-static void enableInterrupts()  {
-    unsigned int currentPsr = psr_get();
-    psr_set(currentPsr | PSR_CURRENT_INT);
-
+static void enableInterrupts()  
+{
+   int currentPsr = psr_get();   // Get current psr
+   int interruptEnable = currentPsr | PSR_CURRENT_INT;   // Set the interrupt enable bit to ON (0x2)
+   psr_set(interruptEnable);     // Set psr to new psr
 }
 
 
@@ -896,7 +897,10 @@ void disableInterrupts()
 /* TODO: Clock Handler function */
 void clockHandler(int dev, void *pUnit)
 {
+   checkKernelMode();
+
    // Clock interrupt has occurred
+   printf("\n-- Clock Interrupt occurred --\n\n");
    // time slice (check if time is up, if so, make ready and dispatch)
    time_slice();
 }
@@ -926,6 +930,10 @@ void time_slice(void)
       AddToList(&ReadyList[Current->priority-1], Current);
       // Call dispatcher
       dispatcher();
+   }
+   else
+   {
+      return;  // return to allow system to continue running its current process
    }
 }
 
@@ -973,11 +981,15 @@ void DebugConsole(char *format, ...)
    ---------------------------------------------------------*/
 void checkKernelMode()
 {
-   if((PSR_CURRENT_MODE & psr_get()) == 0) 
+   int currentPsr =  psr_get();
+
+   // if the kernel mode bit is not set, then halt
+   // meaning if not in kernel mode, halt(1)
+   if (currentPsr & PSR_CURRENT_MODE == 0)
    {
-    //not in kernel mode
-    console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
-    halt(1);
+      // not in kernel mode
+      console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
+      halt(1);
    }
 }
 
@@ -1185,9 +1197,6 @@ void updateCpuTime(proc_ptr process)
 
    // Add to the cpu_time, the amount of time the process has spent executing
    process->cpu_time += (currentTime - process->tsStart);
-
-   // Reset tsStart to 0
-   process->tsStart = 0;
 
    // Set status to temporary non-running status
    process->status = STATUS_CPUCALC;

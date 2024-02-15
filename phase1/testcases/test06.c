@@ -28,8 +28,7 @@ start1( char *arg )
 } /* start1 */
 
 
-int
-XXp1( char *arg )
+int XXp1( char *arg )
 {
 
   console("XXp1: started\n");
