@@ -540,7 +540,7 @@ int zap(int pid)
    AddToList(&pProcToZap->zappers, Current); // Add current process to the zapped process's list of zappers
 
    // block until process calls quit()
-   Current->status == STATUS_BLOCKED_ZAP;
+   Current->status = STATUS_BLOCKED_ZAP;
    dispatcher();
 
    return result;
