@@ -349,12 +349,11 @@ int join(int *status)
          // Remove children from lists (quit should have removed it from ready list)
          RemoveFromList(&(Current->children), child); // Remove child from parent's children list
          
-
          // Grab the child's pid before cleaining PCB
          childPid = child->pid;
 
          // Clean the child's PCB
-         //pcbClean(child);
+         pcbClean(child);
 
          // Return pid of the terminated child
          return childPid;
@@ -956,9 +955,9 @@ void pcbClean(proc_ptr pcb)
 {
    if (pcb != NULL)
    {
-      free(pcb);  // Free the pcb stack
+      //free(pcb);  // Free the pcb stack
       memset(pcb, 0, sizeof(struct proc_struct)); // Clear the content of the PCB structure
-      free(pcb);  // free the memory allocated for the PCB
+      //free(pcb);  // free the memory allocated for the PCB
    }
 }
 
