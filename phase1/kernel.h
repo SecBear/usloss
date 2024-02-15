@@ -67,6 +67,7 @@ union psr_values {
 #define STATUS_RUNNING        3
 #define STATUS_QUIT           4
 #define STATUS_BLOCKED_ZAP    5
+#define STATUS_CPUCALC        6     // For use with updateCpuTime() function, temporary status
 
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5

@@ -28,6 +28,7 @@ proc_ptr GetNextReadyProc();
 void pcbClean();
 int RemoveFromList(ProcList *list, proc_ptr process);   // for use in quit() function to remove children from children lists
 int getpid(void);                                  // Get pid of currently running process
+void updateCpuTime(proc_ptr process);
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -353,7 +354,9 @@ int join(int *status)
          childPid = child->pid;
 
          // Clean the child's PCB
-         pcbClean(child);
+         //memset(child, 0, sizeof(proc_struct));
+         //pcbClean(child);
+         child->status = STATUS_EMPTY; // set empty for proc table
 
          // Return pid of the terminated child
          return childPid;
@@ -363,9 +366,10 @@ int join(int *status)
       child = child->pNextSibling;
    }
 
-    // No child has quit before join is called, block the parent process
-    Current->status = STATUS_BLOCKED_JOIN;
-    dispatcher(); // Switch to another process
+   // No child has quit before join is called, update cpu time and block the parent process
+   updateCpuTime(Current);
+   Current->status = STATUS_BLOCKED_JOIN;
+   dispatcher(); // Switch to another process
 
    // After being unblocked, check if we've been zapped and check again for any quitting child processes
    if (is_zapped())
@@ -406,6 +410,11 @@ void quit(int code)
    proc_ptr child = Current->children.pHead;
    while (child != NULL)
    {
+      if (child->status == STATUS_RUNNING)
+      {
+         console("Process with active children attempting to quit\n");
+         halt(1);
+      }
       if (child->status == STATUS_QUIT)
       {
          // Anakin Skywalker
@@ -539,6 +548,7 @@ int zap(int pid)
    AddToList(&pProcToZap->zappers, Current); // Add current process to the zapped process's list of zappers
 
    // block until process calls quit()
+   updateCpuTime(Current); // Update cpu time if process is coming off CPU
    Current->status = STATUS_BLOCKED_ZAP;
    dispatcher();
 
@@ -582,6 +592,7 @@ void dispatcher(void) {
          // If the current process is still running
          if (Current->status == STATUS_RUNNING)
          {
+            updateCpuTime(Current);   // Update the process's cpu time
             Current->status = STATUS_READY; // Set current status to ready
             AddToList(&ReadyList[Current->priority-1], Current); // Add process to ready list
          }
@@ -890,16 +901,25 @@ void clockHandler(int dev, void *pUnit)
    time_slice();
 }
 
+// Returns the time (in microseconds) at which the currently executing process began its time slice
+int read_cur_start_time(void)
+{
+   return Current->tsStart;
+}
+
 // check if time is up, if so, make ready and dispatch
 void time_slice(void)
 {
    // get system time
-   int currentTime = sys_clock();   // sys_clock() returns time in microseconds
+   // int currentTime = sys_clock();   // sys_clock() returns time in microseconds
 
    // subtract current time from process time 
-   if (currentTime - Current->tsStart > 80000) // 80000 microseconds is 80 milliseconds
+   int timeUsed = readtime();
+   if (timeUsed > 80) // If current process has exceeded it's time slice
    {
       // if greater than 80ms, time's up!
+      // Calculate CPU time to be added 
+      updateCpuTime(Current);
       // Set process status to READY
       Current->status = STATUS_READY;
       // Add process back to ready list
@@ -907,6 +927,23 @@ void time_slice(void)
       // Call dispatcher
       dispatcher();
    }
+}
+
+int readtime(void)
+{
+   // Get Current time
+   int microCurTime = sys_clock();
+   // int milliCurTime = microCurTime * .001;      // Convert microsecnods to milliseconds
+
+   // Get Current process's time slice start time
+   int microStartTime = read_cur_start_time();
+   // int milliStartTime = microStartTime * .001;  // Convert microseconds to milliseconds
+
+   // Subtract time slice start time from current time
+   int microTimeUsed = microCurTime - microStartTime;
+
+   // Return time used by currrent process in milliseconds 
+   return microTimeUsed*.001;
 }
 
 /* ---------------------------------------------------------
@@ -1014,6 +1051,7 @@ int RemoveFromList(ProcList* list, proc_ptr process)
 void dump_processes(void)
 {
    proc_ptr process;
+   int currentTime = sys_clock(); // Get time
 
    // Collumn headers
    printf("%-5s%-8s%-10s%-15s%-8s%-10s%s\n", "PID", "Parent", "Priority", "Status", "# Kids", "CPUtime", "Name");
@@ -1023,6 +1061,13 @@ void dump_processes(void)
    for (int i = 0; i < MAXPROC; ++i)
    {
       process = &ProcTable[i];
+
+      // update cpu time of all processes for the dump
+      updateCpuTime(process);
+      if (process->status == STATUS_CPUCALC) // Reset status to running (updateCpuTime changes this)
+      {
+         process->status = STATUS_RUNNING;
+      }
 
       // Print process information
       printf("%-5d%-8d%-10d%-15s%-8d%-10d%s\n", 
@@ -1072,6 +1117,7 @@ int block_me(int new_status)
    }
 
    // set new status and call dispatcher
+   updateCpuTime(Current); 
    Current->status = new_status;
    dispatcher();
 
@@ -1098,7 +1144,7 @@ int unblock_proc(int pid)
    }
 
    // Check if calling process is zapped
-   if (is_zapped)
+   if (is_zapped())
    {
       return -1;
    }
@@ -1114,9 +1160,37 @@ int unblock_proc(int pid)
    }
 
    // Set status to ready and Add to ready list
+   updateCpuTime(pProcToUnblock);   // Update the process's cpu time
    pProcToUnblock->status = STATUS_READY; // Set ready status
    AddToList(&ReadyList[pProcToUnblock->priority-1], pProcToUnblock); // Add to ready list
    dispatcher();  // anytime you make a change to ready list, dispatch
 
    return result;
+}
+
+// Updates the cpu time for a process being taken off the CPU
+// Returns 0 if process is not running
+void updateCpuTime(proc_ptr process)
+{
+   int currentTime = sys_clock();   // Get system time 
+
+   // Check that we're in kernel mode
+   checkKernelMode();
+
+   // Check that process isn't currently running
+   if (process->status != STATUS_RUNNING)
+   {
+      return 0;
+   }
+
+   // Add to the cpu_time, the amount of time the process has spent executing
+   process->cpu_time += (currentTime - process->tsStart);
+
+   // Reset tsStart to 0
+   process->tsStart = 0;
+
+   // Set status to temporary non-running status
+   process->status = STATUS_CPUCALC;
+
+   return process->cpu_time;
 }
