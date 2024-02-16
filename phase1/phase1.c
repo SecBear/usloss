@@ -489,6 +489,12 @@ void quit(int code)
    }
    else
    {
+      // If Current still has children
+      if (Current->children.count > 0)
+      {
+         printf("quit(): Process with active children attempting to quit\n");
+         halt(1);
+      }
       Current->status = STATUS_EMPTY;
       
       // Remove process from ready list 
