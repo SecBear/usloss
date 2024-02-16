@@ -17,7 +17,7 @@ void dispatcher(void);
 void launch();
 static void enableInterrupts();
 static void check_deadlock();
-int AddToList(ProcList *list, proc_ptr process);   //added to resolve implicit declaration warning
+int AddToList(ProcList *list, proc_ptr process, int type);   //added to resolve implicit declaration warning
 int GetNextPid();                                  // Get next available PID
 void clockHandler();                               // For Handling clock interrupts
 void DebugConsole(char *format, ...);
@@ -26,7 +26,7 @@ int check_io();                                    // Dummy function for future 
 void checkKernelMode();                             // Check if we're in kernel mode
 proc_ptr GetNextReadyProc();
 void pcbClean();
-int RemoveFromList(ProcList *list, proc_ptr process);   // for use in quit() function to remove children from children lists
+int RemoveFromList(ProcList *list, proc_ptr process, int type);   // for use in quit() function to remove children from children lists
 int getpid(void);                                  // Get pid of currently running process
 int updateCpuTime(proc_ptr process);
 
@@ -232,7 +232,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    if (ProcTable[proc_slot].pParent != NULL) 
    {
       // Add the new process to the parent's child list
-      AddToList(&(ProcTable[proc_slot].pParent->children), &ProcTable[proc_slot]);
+      AddToList(&(ProcTable[proc_slot].pParent->children), &ProcTable[proc_slot], 2);
    }
    
    // Initialize context for this process with the 'launch' function as the entry point
@@ -244,7 +244,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    p1_fork(ProcTable[proc_slot].pid);
 
    // Add process to ready list (ready list priorities are 0-5 so priority 1 goes in ReadyList[0], priority 6 goes in ReadyList[5])
-   AddToList(&ReadyList[priority-1], &ProcTable[proc_slot]);
+   AddToList(&ReadyList[priority-1], &ProcTable[proc_slot], 1); // This add to list overwrites adding to the parent's child list (trying to put it after instead)
 
    // Increment number of currently active processes (note: process must utilize quit() function for numProc to be decremented)
    ++numProc;
@@ -349,15 +349,20 @@ int join(int *status)
          }
 
          // Remove children from lists (quit should have removed it from ready list)
-         RemoveFromList(&(Current->children), child); // Remove child from parent's children list
+         RemoveFromList(&(Current->children), child, 2); // Remove child from parent's children list
          
          // Grab the child's pid before cleaining PCB
          childPid = child->pid;
 
          // Clean the child's PCB
-         //memset(child, 0, sizeof(proc_struct));
+         memset(child, 0, sizeof(proc_struct));
+
          //pcbClean(child);
          child->status = STATUS_EMPTY; // set empty for proc table
+         child->pid = -1;
+         child->priority = -1;
+         child->cpu_time = -1;
+
 
          // Return pid of the terminated child
          return childPid;
@@ -420,14 +425,15 @@ void quit(int code)
       {
          // Anakin Skywalker
          // Remove child from ready list
-         RemoveFromList(&ReadyList[child->priority-1], child);   // remove it from process list
+         RemoveFromList(&ReadyList[child->priority-1], child, 2);   // remove it from process list
          // Clear child from the ProcTable (could make this a standalone function)
          for (int i = 1; i < MAXPROC; i++)
          {
             if (ProcTable[i].pid == child->pid)
             {
                // Clear the process entry in the ProcTable
-               memset(&ProcTable[i], 0, sizeof(proc_struct));
+               //memset(&ProcTable[i], 0, sizeof(proc_struct));
+               child->status = STATUS_EMPTY;
             }
          }
          // Clean child's PCB ? (or did memset take care of that?)
@@ -450,8 +456,8 @@ void quit(int code)
             if (zapper->status == STATUS_BLOCKED_ZAP)
             {
                zapper->status = STATUS_READY;                          // Set zapper status to ready
-               AddToList(&ReadyList[zapper->priority-1], zapper);       // Add zapper to ready list
-               RemoveFromList(&Current->zappers, zapper);               // Remove zapper from Current's zapper list
+               AddToList(&ReadyList[zapper->priority-1], zapper, 1);       // Add zapper to ready list
+               RemoveFromList(&Current->zappers, zapper, 3);               // Remove zapper from Current's zapper list
             }
          }
          zapper = zapper->pNextSibling;   // Move to next zapper
@@ -481,7 +487,7 @@ void quit(int code)
       {
          // make parent ready to run again
          Current->pParent->status = STATUS_READY;             // Set parent status to ready
-         AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent);      // Add parent to ready list
+         AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent, 1);      // Add parent to ready list
       }
 
    }
@@ -492,7 +498,7 @@ void quit(int code)
       // Remove process from ready list 
       if (Current->pid != 2)
       {
-         RemoveFromList(&ReadyList[Current->priority-1], Current);   // remove it from ready list // THIS DIDN't work with start1
+         RemoveFromList(&ReadyList[Current->priority-1], Current, 1);   // remove it from ready list // THIS DIDN't work with start1
       }
       // Remove process from proc list
        for (int i = 1; i < MAXPROC; i++)
@@ -546,7 +552,7 @@ int zap(int pid)
 
    // Mark the process as zapped
    pProcToZap->zapped = 1;
-   AddToList(&pProcToZap->zappers, Current); // Add current process to the zapped process's list of zappers
+   AddToList(&pProcToZap->zappers, Current, 3); // Add current process to the zapped process's list of zappers
 
    // block until process calls quit()
    updateCpuTime(Current); // Update cpu time if process is coming off CPU
@@ -582,7 +588,7 @@ void dispatcher(void) {
    // Check if the parent process of the next process is still running
 
     // Find the next process to run (returns current process or new process)
-    next_process = GetNextReadyProc();
+    next_process = GetNextReadyProc(); // What if we're waiting on a specific child to quit?
 
     // Is the process changing
     if (next_process != Current)
@@ -595,7 +601,7 @@ void dispatcher(void) {
          {
             updateCpuTime(Current);   // Update the process's cpu time
             Current->status = STATUS_READY; // Set current status to ready
-            AddToList(&ReadyList[Current->priority-1], Current); // Add process to ready list
+            AddToList(&ReadyList[Current->priority-1], Current, 1); // Add process to ready list
          }
          pPrevContext = &Current->state; // Populate pPrevContext with current state
       }
@@ -628,7 +634,7 @@ proc_ptr PopList(ProcList *list)
    
    // Get the oldest item and replace list's head
    proc_ptr poppedProc = list->pHead;  // get the head of the list (oldest item)
-   list->pHead = poppedProc->pNextSibling; // update the head to the next process
+   list->pHead = poppedProc->next_proc_ptr; // update the head to the next process
 
    // Update head/tail pointers
    if (list->pHead == NULL)
@@ -637,13 +643,13 @@ proc_ptr PopList(ProcList *list)
    }
    else
    {
-      list->pHead->pPrevSibling = NULL; // Update the new head's previous pointer to NULL
+      list->pHead->prev_proc_ptr = NULL; // Update the new head's previous pointer to NULL
    }
 
    // Update the popped process's pointers
-   if (poppedProc->pNextSibling != NULL)
+   if (poppedProc->next_proc_ptr != NULL)
    {
-      poppedProc->pNextSibling->pPrevSibling = NULL; // Update the next process's previous pointer to NULL
+      poppedProc->next_proc_ptr->prev_proc_ptr   = NULL; // Update the next process's previous pointer to NULL
    }
 
 
@@ -655,12 +661,15 @@ proc_ptr PopList(ProcList *list)
 /* ------------------------------------------------------------------------
    Name - AddToList
    Purpose - Add a process to a process list
-   Parameters - The ProcList to add an item to, the process to add)
-
+   Parameters - The ProcList to add an item to
+                the process to add, and the type of list: 
+                1 for ReadyList 
+                2 for a process children list
+                3 for a zapper list
    You can use this function to add processes to the ready list like this:
    AddToList(&ReadyList[process_priority], new_process); 
    ------------------------------------------------------------------------ */
-int AddToList(ProcList *list, proc_ptr process)
+int AddToList(ProcList *list, proc_ptr process, int type)
 {
    if (process == NULL)
    {
@@ -668,50 +677,61 @@ int AddToList(ProcList *list, proc_ptr process)
       return 0;
    }
 
-   // Check if process is already on the ReadyList (only checks head atm)
-   proc_ptr current = list->pHead;
-   if (current != NULL)
+   // Are we adding to ReadyList?
+   if (type == 1)
    {
-      if (current->pid == process->pid)
+      // Check if the process is already on the list
+      proc_ptr current = list->pHead;
+      if (current != NULL)
       {
-         // Process is already in the list
-         return 0;
+         if (current->pid == process->pid && current->status != STATUS_EMPTY)
+         {
+            // Process is already in the list
+            return 0;
+         }
+         current = current->next_proc_ptr;   // Move to next process
       }
-      // would update current to sibling, but if the new proc is a sibling it won't be added
-    }
 
-   // If this is a new process
-   //if (process->cpu_time == 0)
-   //{
-      // Update the new process's pointers 
-   process->pNextSibling = NULL;         // The new process will be the last one, so its next pointer is NULL
-   process->pPrevSibling = list->pTail;  // Its previous pointer points to the current tail
-   //}
-
-   if (list->pTail != NULL)
-   {
-      // Update the current tail's next pointer to the new process if list is not empty and if it is not already updated
-      if (list->pTail->pNextSibling != process)
-      {
-         list->pTail->pNextSibling = process;
-      }
+      // Update new process's pointers
+      process->next_proc_ptr = NULL;
+      process->prev_proc_ptr = list->pTail;
    }
 
-   // The list's new tail is the new process
-   list->pTail = process;
+      // Update the new process's pointers
+      if (type == 2) // Use pSiblings
+      {
+         process->pNextSibling = NULL;
+         process->pPrevSibling = list->pTail;
+      }
+      
+      // Update the previous tail's next pointer to new process
+      if (list->pTail != NULL)
+      {
+         if (type == 1) // use next_proc_ptr
+         {
+            list->pTail->next_proc_ptr = process;
+         }
+         if (type == 2) // use pNextSibling
+         {
+            list->pTail->pNextSibling = process;
+         }
+      }
 
-   if (list->pHead == NULL)
-   {
-      // If the list was empty, update the head to point to the new process
-      list->pHead = process;
+      // New tail is the new process
+      list->pTail = process;
+
+      // If the list is empty, make new process the head
+      if (list->pHead == NULL)
+      {
+         list->pHead = process;
+      }
+
+      // Increment the list count
+      list->count++;
+
+      return 1;
    }
 
-   // Increment the count of processes in the list
-   list->count++;
-
-   // Return 1 for success
-   return 1;
-}
 
 /* ------------------------------------------------------------------------
    Name - GetNextPid
@@ -816,7 +836,6 @@ proc_ptr GetNextReadyProc()
                   // add current to ready list?
                   return nextProc;
                }
-
             }
          }      
       }
@@ -872,7 +891,8 @@ static void check_deadlock()
    else
    {
       // otherwise halt(1)
-      printf("DEADLOCK DETECTED.\n");
+      printf("check_deadlock: numProc is %d\n", numProc);
+      printf("processes still present, halting...\n");
       halt(1);
    }
 } /* check_deadlock */
@@ -931,7 +951,7 @@ void time_slice(void)
       // Set process status to READY
       Current->status = STATUS_READY;
       // Add process back to ready list
-      AddToList(&ReadyList[Current->priority-1], Current);
+      AddToList(&ReadyList[Current->priority-1], Current, 1);
       // Call dispatcher
       dispatcher();
 
@@ -1017,7 +1037,8 @@ void pcbClean(proc_ptr pcb)
    }
 }
 
-int RemoveFromList(ProcList* list, proc_ptr process) 
+// Removes a process from a list (ReadyList, children list or zappers list)
+int RemoveFromList(ProcList* list, proc_ptr process, int type) 
 {
     if (process == NULL) 
     {
@@ -1028,31 +1049,69 @@ int RemoveFromList(ProcList* list, proc_ptr process)
     // Check if the process to remove is the head of the list
     if (list->pHead == process) 
     {
-        // Update the head to point to the next process
-        list->pHead = process->pNextSibling;
+      if (type == 1) // Use proc_ptrs
+      {
+         list->pHead = process->next_proc_ptr;
+      }
+      if (type == 2) // Use pSiblings
+      {
+         // Update the head to point to the next process
+         list->pHead = process->pNextSibling;
+      }
+      if (type == 3)
+      {
+         // Equivalent for next_zapper
+      }
     }
 
     // Check if the process to remove is the tail of the list
     if (list->pTail == process) 
     {
+      if (type == 1)
+      {
+         list->pTail = process->prev_proc_ptr;
+      }
+      if (type == 2)
+      {
         // Update the tail to point to the previous process
         list->pTail = process->pPrevSibling;
+      }
     }
 
-    // Update the sibling pointers of adjacent processes
-    if (process->pNextSibling != NULL) 
-    {
-        process->pNextSibling->pPrevSibling = process->pPrevSibling;
-    }
-    if (process->pPrevSibling != NULL) 
-    {
-        process->pPrevSibling->pNextSibling = process->pNextSibling;
-    }
+   if (type == 1)
+   {
+      // Update the sibling pointers of adjacent processes
+      if (process->pNextSibling != NULL) 
+      {
+         process->pNextSibling->pPrevSibling = process->pPrevSibling;
+      }
+      if (process->pPrevSibling != NULL) 
+      {
+         process->pPrevSibling->pNextSibling = process->pNextSibling;
+      }
 
-    // Reset the removed process's pointers
-    process->pNextSibling = NULL;
-    process->pPrevSibling = NULL;
+      // Reset the removed process's pointers
+      process->next_proc_ptr = NULL;
+      process->prev_proc_ptr = NULL;
 
+   }
+   if (type == 2)
+   {
+      // Update the next and prev pointers of adjacent processes
+      if (process->next_proc_ptr != NULL) 
+      {
+         process->next_proc_ptr->prev_proc_ptr = process->prev_proc_ptr;
+      }
+      if (process->prev_proc_ptr != NULL) 
+      {
+         process->prev_proc_ptr->next_proc_ptr = process->next_proc_ptr;
+      }
+
+      // Reset the removed process's pointers
+      process->pNextSibling = NULL;
+      process->pPrevSibling = NULL;
+   }
+   
     // Decrement the count of processes in the list
     list->count--;
 
@@ -1096,7 +1155,7 @@ void dump_processes(void)
             process->status == STATUS_EMPTY ? "EMPTY" :
             process->status == STATUS_READY ? "READY" :
             process->status == STATUS_RUNNING ? "RUNNING" :
-            process->status == STATUS_BLOCKED_JOIN ? "BLOCKED" :
+            process->status == STATUS_BLOCKED_JOIN ? "JOIN BLOCK" :
             "UNKNOWN",
             process->children.count,
             process->cpu_time,
@@ -1181,7 +1240,7 @@ int unblock_proc(int pid)
    // Set status to ready and Add to ready list
    updateCpuTime(pProcToUnblock);   // Update the process's cpu time
    pProcToUnblock->status = STATUS_READY; // Set ready status
-   AddToList(&ReadyList[pProcToUnblock->priority-1], pProcToUnblock); // Add to ready list
+   AddToList(&ReadyList[pProcToUnblock->priority-1], pProcToUnblock, 1); // Add to ready list
    dispatcher();  // anytime you make a change to ready list, dispatch
 
    return result;
