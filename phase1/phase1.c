@@ -561,7 +561,15 @@ int zap(int pid)
    Current->status = STATUS_BLOCKED_ZAP;
    dispatcher();
 
+   // Check if Current has been zapped while blocked on zap
+   if (is_zapped())
+   {
+      return -1;
+   }
+   else
+   {
    return result;
+   }
 }
 
 
