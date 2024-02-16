@@ -350,14 +350,13 @@ int join(int *status)
          childPid = child->pid;
 
          // Clean the child's PCB
-         //memset(child, 0, sizeof(proc_struct));
+         memset(child, 0, sizeof(proc_struct));
 
          //pcbClean(child);
          child->status = STATUS_EMPTY; // set empty for proc table
          child->pid = -1;
          child->priority = -1;
          child->cpu_time = -1;
-
 
          // Return pid of the terminated child
          return childPid;
