@@ -156,21 +156,16 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 
    DebugConsole("fork1(): creating process %s\n", name);
 
-   /* test if in kernel mode; halt if in user mode */
-   /*if ((psr_get() & PSR_CURRENT_MODE) == 0) {
-      console("fork1(): not in kernel mode, halting...\n");
-      halt(1);
-   } */
    checkKernelMode();
 
    /* Return if stack size is too small */
    if (stacksize < USLOSS_MIN_STACK) {
-      console("fork1(): stack size is too small, returning -2\n");
+      //console("fork1(): stack size is too small, returning -2\n");
       return -2;
    }
    /* Check if Priority is out of range, Process priority 6 must have name "sentinel" */ 
    if (priority < MAXPRIORITY || (priority > MINPRIORITY && strcmp(name, "sentinel") != 0) ) {
-      console("fork1(): priority out of range, returning -1\n");
+      //console("fork1(): priority out of range, returning -1\n");
       return -1;
    }
    /* Check if name is NULL */
@@ -185,7 +180,7 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ProcTable[proc_slot].pid = newPid; // Assign the next available PID
    /* Check if slot is available */
    if (proc_slot == -1) {
-      console("fork1(): no empty slot available in the process table, returning -1\n");
+//      console("fork1(): no empty slot available in the process table, returning -1\n");
       return -1;
    }
    /* fill-in entry in process table */
@@ -537,8 +532,8 @@ int zap(int pid)
 
    // Check if the process is trying to zap itself
    if (pid == Current->pid) {
-      console("Error: Process cannot zap itself\n");
-      return -1;
+      console("zap: process attempted to zap itself.\n");
+      halt(1);
    }
 
    // Find the process to be zapped
@@ -546,7 +541,7 @@ int zap(int pid)
    
    // Check if the process exists
    if (pProcToZap->status == STATUS_EMPTY) {
-      console("Error: Process does not exist\n");
+      console("zap: attempting to zap a process that does not exist.\n");
       halt(1);
    }
 
@@ -892,7 +887,7 @@ static void check_deadlock()
    {
       // otherwise halt(1)
       printf("check_deadlock: numProc is %d\n", numProc);
-      printf("processes still present, halting...\n");
+      printf("check_deadlock: processes still present, halting...\n");
       halt(1);
    }
 } /* check_deadlock */
@@ -1015,7 +1010,7 @@ void checkKernelMode()
    if ((currentPsr & PSR_CURRENT_MODE) == 0)
    {
       // not in kernel mode
-      console("Kernel Error: Not in kernel mode, may not disable interrupts\n");
+      console("Kernel mode expected, but function called in user mode.\n");
       halt(1);
    }
 }
@@ -1156,6 +1151,13 @@ void dump_processes(void)
             process->status == STATUS_READY ? "READY" :
             process->status == STATUS_RUNNING ? "RUNNING" :
             process->status == STATUS_BLOCKED_JOIN ? "JOIN BLOCK" :
+            process->status == STATUS_BLOCKED_ZAP ? "ZAP BLOCK" :
+            process->status == 11 ? "11" :
+            process->status == 12 ? "12" :
+            process->status == 13 ? "13" :
+            process->status == 14 ? "14" :
+            process->status == 15 ? "15" :
+            process->status == 16 ? "16" :
             "UNKNOWN",
             process->children.count,
             process->cpu_time,
