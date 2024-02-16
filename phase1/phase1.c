@@ -317,12 +317,6 @@ int join(int *status)
    // Check if we're in kernel mode
    checkKernelMode();
 
-   // Check if the process has been zapped while waiting for a child to quit
-   if (is_zapped())
-   {
-      return -1;
-   }
-
    // Check if the process has any children
    if (Current->children.count == 0)
    {
@@ -359,8 +353,15 @@ int join(int *status)
          child->priority = -1;
          child->cpu_time = -1;
 
-         // Return pid of the terminated child
-         return childPid;
+         // Check if parent is zapped
+         if (is_zapped())
+         {
+            return -1;
+         }
+         else // Return pid of the terminated child
+         {
+            return childPid;
+         }
       }
 
       // Move to the next child in the list
