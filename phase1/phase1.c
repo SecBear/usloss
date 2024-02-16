@@ -350,7 +350,7 @@ int join(int *status)
          childPid = child->pid;
 
          // Clean the child's PCB
-         memset(child, 0, sizeof(proc_struct));
+         //memset(child, 0, sizeof(proc_struct));
 
          //pcbClean(child);
          child->status = STATUS_EMPTY; // set empty for proc table
@@ -484,6 +484,8 @@ void quit(int code)
          Current->pParent->status = STATUS_READY;             // Set parent status to ready
          AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent, 1);      // Add parent to ready list
       }
+
+      // Remove this child from parent?
 
    }
    else
@@ -1075,14 +1077,23 @@ int RemoveFromList(ProcList* list, proc_ptr process, int type)
 
    if (type == 1)
    {
-      // Update the sibling pointers of adjacent processes
-      if (process->pNextSibling != NULL) 
+
+      // Update the next and prev pointers of adjacent processes
+      if (process->next_proc_ptr != NULL && process->prev_proc_ptr != NULL) 
       {
-         process->pNextSibling->pPrevSibling = process->pPrevSibling;
+         // Both pointers are not NULL, update both next and prev pointers
+         process->next_proc_ptr->prev_proc_ptr = process->prev_proc_ptr; // Link next's prev to prev
+         process->prev_proc_ptr->next_proc_ptr = process->next_proc_ptr; // Link prev's next to next
       }
-      if (process->pPrevSibling != NULL) 
+      else if (process->next_proc_ptr != NULL)
       {
-         process->pPrevSibling->pNextSibling = process->pNextSibling;
+         // If next is not NULL but prev is NULL, process is the head of the list
+         process->next_proc_ptr->prev_proc_ptr = NULL; // Update next's prev to NULL
+      }
+      else if (process->prev_proc_ptr != NULL)
+      {
+         // If prev is not NULL but next is NULL, process is the tail of the list
+         process->prev_proc_ptr->next_proc_ptr = NULL; // Update prev's next to NULL
       }
 
       // Reset the removed process's pointers
@@ -1093,13 +1104,21 @@ int RemoveFromList(ProcList* list, proc_ptr process, int type)
    if (type == 2)
    {
       // Update the next and prev pointers of adjacent processes
-      if (process->next_proc_ptr != NULL) 
+      if (process->pNextSibling != NULL && process->pPrevSibling != NULL) 
       {
-         process->next_proc_ptr->prev_proc_ptr = process->prev_proc_ptr;
+         // Both pointers are not NULL, update both next and prev pointers
+         process->pNextSibling->pPrevSibling = process->pPrevSibling; // Link next's prev to prev
+         process->pPrevSibling->pNextSibling = process->pNextSibling; // Link prev's next to next
       }
-      if (process->prev_proc_ptr != NULL) 
+      else if (process->pNextSibling != NULL)
       {
-         process->prev_proc_ptr->next_proc_ptr = process->next_proc_ptr;
+         // If next is not NULL but prev is NULL, process is the head of the list
+         process->pNextSibling->pPrevSibling = NULL; // Update next's prev to NULL
+      }
+      else if (process->pPrevSibling != NULL)
+      {
+         // If prev is not NULL but next is NULL, process is the tail of the list
+         process->pPrevSibling->pNextSibling = NULL; // Update prev's next to NULL
       }
 
       // Reset the removed process's pointers
