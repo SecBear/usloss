@@ -176,13 +176,14 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    /* find an empty slot in the process table */
    newPid = GetNextPid();
    proc_slot = newPid % MAXPROC;
-   /* Assign PID to process */
-   ProcTable[proc_slot].pid = newPid; // Assign the next available PID
    /* Check if slot is available */
    if (proc_slot == -1) {
 //      console("fork1(): no empty slot available in the process table, returning -1\n");
       return -1;
    }
+   /* Assign PID to process */
+   ProcTable[proc_slot].pid = newPid; // Assign the next available PID
+   
    /* fill-in entry in process table */
    if ( strlen(name) >= (MAXNAME - 1) ) {
       console("fork1(): Process name is too long.  Halting...\n");
