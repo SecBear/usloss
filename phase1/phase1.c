@@ -376,6 +376,11 @@ int join(int *status)
    // After being unblocked, check if we've been zapped and check again for any quitting child processes
    if (is_zapped())
    {
+      // Check if process has children
+      if (Current->children.count > 0)
+      {
+         join(status); // Make sure we handle those children
+      }
       return -1;  // we've been zapped while blocked
    }
    return join(status); // check again for any quitting child processes
