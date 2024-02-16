@@ -1245,7 +1245,7 @@ int block_me(int new_status)
 
 int unblock_proc(int pid)
 {
-   int result = -1;
+   int result = 0;
    int procSlot;
    proc_ptr pProcToUnblock;
 
