@@ -609,13 +609,6 @@ void dispatcher(void) {
     context *pPrevContext=NULL;
     int currentClock = sys_clock();
 
-    // TODO: Check if current process can continue running - DONE - implemented in GetNextReadyProc
-    // Has process been time-sliced?
-    // Has process been blocked?
-    // Is process still the highest priority among READY processes?
-      // If not, it has to go back on the ready list
-
-   // Handle case where child is higher priority than parent that still needs to run
    // Check if the parent process of the next process is still running
 
     // Find the next process to run (returns current process or new process)
@@ -642,7 +635,6 @@ void dispatcher(void) {
          // Set old status to blocked?
          context_switch(pPrevContext, &Current->state); // switch contexts to new process
     }
-      // NOTE: First context switch from NULL handled in fork1
 } /* dispatcher */
 
 /* ------------------------------------------------------------------------
@@ -682,7 +674,6 @@ proc_ptr PopList(ProcList *list)
    {
       poppedProc->next_proc_ptr->prev_proc_ptr   = NULL; // Update the next process's previous pointer to NULL
    }
-
 
    // Decrement the count of processes in the list
    list->count--;
