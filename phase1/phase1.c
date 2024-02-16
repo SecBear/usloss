@@ -550,13 +550,27 @@ int zap(int pid)
       halt(1);
    }
 
-   // Find the process to be zapped
-   pProcToZap = &ProcTable[pid % MAXPROC];
-   
-   // Check if the process exists
-   if (pProcToZap->status == STATUS_EMPTY) {
+   // Check if the process pid exists
+   if (pid > MAXPROC || pid < 0) 
+   {
       console("zap: attempting to zap a process that does not exist.\n");
       halt(1);
+   }
+
+   // Find the process to be zapped
+   pProcToZap = &ProcTable[pid % MAXPROC];
+
+   // Does process exist?
+   if (pProcToZap->pid < 0)
+   {
+      console("zap: attempting to zap a process that does not exist.\n");
+      halt(1);
+   }
+
+   // Has the process already quit?
+   if (pProcToZap->status == STATUS_QUIT)
+   {
+      return 0;   // If so, return 0
    }
 
    // Mark the process as zapped
