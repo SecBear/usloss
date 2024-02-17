@@ -5,8 +5,6 @@ You will find this directory is structured as follows:
 
 .vscode--------------------files for use in vscdoe for debugging
 testcases:-----------------the test cases used to test our kernel functionality
-usloss:--------------------a symbolic link to the usloss directory included in the project's 
-    parent directory
 kernel.h:------------------header file containing structures and constants used in our kernel
 Makefile:------------------file containing compilation & build instructions for testcases and phase1.cases
 p1.c:----------------------file containing pre-defined function definitions (unmodified)
