@@ -4,22 +4,21 @@ typedef struct proc_struct proc_struct;
 
 typedef struct proc_struct * proc_ptr;
 
-typedef struct 
+typedef struct
 {
-   /* data */
    proc_ptr pHead;
    proc_ptr pTail;
    int count;
-} ProcList;
+} ProcList; // Process List (used for Ready List, Children List, Zappers List)
 
 
 struct proc_struct {
-   proc_ptr       next_proc_ptr;
-   proc_ptr       prev_proc_ptr;
+   proc_ptr       next_proc_ptr;    // Next process in Ready List
+   proc_ptr       prev_proc_ptr;    // Previous process in Ready List
 
-   proc_ptr       pNextSibling;
-   proc_ptr       pPrevSibling;
-   proc_ptr       pParent;  // Parent process 
+   proc_ptr       pNextSibling;     // Next sibling in Parent's Children List
+   proc_ptr       pPrevSibling;     // Previous sibling in Parent's Children List
+   proc_ptr       pParent;          // Parent process 
 
    char           name[MAXNAME];     /* process's name */
    char           start_arg[MAXARG]; /* args passed to process */
@@ -32,7 +31,7 @@ struct proc_struct {
    int            status;            /* READY, BLOCKED, QUIT, etc. */
 
    /* other fields as needed... */
-   int            exitCode;          // Exit status of the process   
+   int            exitCode;         // Exit status of the process   
    ProcList       children;         // List of children
    int            tsStart;          // Start time of process' slice
    int            cpu_time;         // How much time (in milliseconds) has the process had on CPU
@@ -56,25 +55,22 @@ union psr_values {
 };
 
 /* Some useful constants.  Add more as needed... */
-
-// STATUSES
-#define STATUS_WAITING        -3
-#define STATUS_ZOMBIE         -2
-#define STATUS_UNUSED         -1
-#define STATUS_EMPTY          0    
-#define STATUS_READY          1    //defined new constant as it represents status of a process that is ready to run 
-#define STATUS_BLOCKED_JOIN   2
-#define STATUS_RUNNING        3
-#define STATUS_QUIT           4
-#define STATUS_BLOCKED_ZAP    5
-#define STATUS_CPUCALC        6     // For use with updateCpuTime() function, temporary status
-
 #define NO_CURRENT_PROCESS NULL
 #define MINPRIORITY 5
 #define MAXPRIORITY 1
 #define SENTINELPID 1
 #define SENTINELPRIORITY LOWEST_PRIORITY
-#define LOWEST_PRIORITY 6  //set higher value for lower priorty in process scheduling
+#define LOWEST_PRIORITY 6 
+
+// STATUSES                         // Represents status of a process that is:
+#define STATUS_UNUSED         -1    // unused - for initialization in startup()
+#define STATUS_EMPTY          0     // empty
+#define STATUS_READY          1     // ready to run 
+#define STATUS_BLOCKED_JOIN   2     // blocked on join, waiting for child to return
+#define STATUS_RUNNING        3     // currently running
+#define STATUS_QUIT           4     // quitting
+#define STATUS_BLOCKED_ZAP    5     // blocked on zap, waiting for zapped process to return
+#define STATUS_CPUCALC        6     // For use with updateCpuTime() function, temporary status
 
 // LIST TYPES
 #define READY_LIST      1
