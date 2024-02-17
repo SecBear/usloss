@@ -76,3 +76,7 @@ union psr_values {
 #define SENTINELPRIORITY LOWEST_PRIORITY
 #define LOWEST_PRIORITY 6  //set higher value for lower priorty in process scheduling
 
+// LIST TYPES
+#define READY_LIST      1
+#define CHILDREN_LIST   2
+

@@ -20,15 +20,14 @@ static void check_deadlock();
 int AddToList(ProcList *list, proc_ptr process, int type);   //added to resolve implicit declaration warning
 int GetNextPid();                                  // Get next available PID
 void clockHandler();                               // For Handling clock interrupts
-void DebugConsole(char *format, ...);
-static void check_deadlock();
+void DebugConsole(char *format, ...);              // Output debug statements to the debug console
+static void check_deadlock();                      // Check for deadlocks
 int check_io();                                    // Dummy function for future phase
-void checkKernelMode();                             // Check if we're in kernel mode
-proc_ptr GetNextReadyProc();
-void pcbClean();
-int RemoveFromList(ProcList *list, proc_ptr process, int type);   // for use in quit() function to remove children from children lists
+void checkKernelMode();                            // Check if we're in kernel mode
+proc_ptr GetNextReadyProc();                       // Get the next ready process on the process list
+int RemoveFromList(ProcList *list, proc_ptr process, int type);   // Remove a process pointer from a process list
 int getpid(void);                                  // Get pid of currently running process
-int updateCpuTime(proc_ptr process);
+int updateCpuTime(proc_ptr process);               // Update a process's Cpu time when coming off the CPU
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -36,12 +35,8 @@ int updateCpuTime(proc_ptr process);
 /* Patrick's debugging global variable... */
 int debugflag = 1;
 
-// FIRST TODO: EXAMINE THIS - the master list of all the processes that are active - any process could be ready, blocking, running
 /* the process table */
 proc_struct ProcTable[MAXPROC];  // Just an array that can hold 50 processes
-
-/* Process lists  */
-
 
 /* Processes */
 proc_ptr Current;                      // current process ID
@@ -80,7 +75,8 @@ void startup()
    if (DEBUG && debugflag)
       console("startup(): initializing the Ready & Blocked lists\n");
    
-   for (i = 0; i < sizeof(ReadyList) / sizeof(ReadyList[0]); i++) {   //I replaced 'int * ReadyList =NULL', it's not necessary since we have a Global ReadyList which is an array of 'ProcList', initialized 'ReadyList' without redeclaring it.
+   for (i = 0; i < sizeof(ReadyList) / sizeof(ReadyList[0]); i++) 
+   {   
        ReadyList[i].pHead = NULL;
        ReadyList[i].pTail = NULL;
        ReadyList[i].count = 0;
@@ -92,9 +88,7 @@ void startup()
    /* Initialize the clock interrupt handler */
    int_vec[CLOCK_INT] = clockHandler;
 
-   /* startup a sentinel process - the background process that runs when nobody else is ready to run. The wait room if you will (busy wait). 
-      we have to have this process so that we can switch control back to it from another process that terminates, is waiting for i/o, etc. 
-      lowest priority process. */
+   /* startup a sentinel process */
    if (DEBUG && debugflag)
        console("startup(): calling fork1() for sentinel\n");
    result = fork1("sentinel", sentinel, NULL, USLOSS_MIN_STACK,
@@ -145,9 +139,7 @@ void finish()
    Returns - the process id of the created child or -1 if no child could
              be created or if priority is not between max and min priority.
    Side Effects - ReadyList is changed, ProcTable is changed, Current
-                  process information changed
-
-         Put the process in the process table and invoke the context switch
+                  process information changed.
    ------------------------------------------------------------------------ */
 int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 {
@@ -160,12 +152,10 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 
    /* Return if stack size is too small */
    if (stacksize < USLOSS_MIN_STACK) {
-      //console("fork1(): stack size is too small, returning -2\n");
       return -2;
    }
    /* Check if Priority is out of range, Process priority 6 must have name "sentinel" */ 
    if (priority < MAXPRIORITY || (priority > MINPRIORITY && strcmp(name, "sentinel") != 0) ) {
-      //console("fork1(): priority out of range, returning -1\n");
       return -1;
    }
    /* Check if name is NULL */
@@ -178,7 +168,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    proc_slot = newPid % MAXPROC;
    /* Check if slot is available */
    if (proc_slot == -1) {
-//      console("fork1(): no empty slot available in the process table, returning -1\n");
       return -1;
    }
    /* Assign PID to process */
@@ -246,9 +235,6 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
    ++numProc;
 
    // dispatcher
-   /* call dispatcher dispatcher(); which will transition the processing
-    * to whichever process needs to run next based on the scheduling algorithm 
-    */
    if (readyToStart)
    {
       dispatcher(); 
@@ -259,8 +245,14 @@ int fork1(char *name, int (*f)(char *), char *arg, int stacksize, int priority)
 } /* fork1 */
 
 
-/* The interrupts can then be enabled by setting the current interrupt enable 
-bit in the processor status register (see Section 3.4). */
+/* ------------------------------------------------------------------------
+   Name - enableInterrupts()
+   Purpose - Enable USLOSS defined interrupts
+   Parameters - none
+   Returns - none
+   Side Effects - Sets the process status register to a new value containing
+                  the interrupt flag set to ON.
+   ------------------------------------------------------------------------ */
 static void enableInterrupts()  
 {
    int currentPsr = psr_get();   // Get current psr
@@ -283,7 +275,7 @@ void launch()
 
    DebugConsole("launch(): started\n");
 
-   /* Enable interrupts */ // TODO: set error handling
+   /* Enable interrupts */
    enableInterrupts();
 
    // On first launch(), Current is empty
@@ -309,7 +301,6 @@ void launch()
    Side Effects - If no child process has quit before join is called, the 
                   parent is removed from the ready list and blocked.
    ------------------------------------------------------------------------ */
-   // TODO: return -1 if the parent process was zapped while waiting for a child to quit
 int join(int *status) 
 {
    int childPid = -1;
@@ -321,7 +312,6 @@ int join(int *status)
    if (Current->children.count == 0)
    {
       // if no children, return -2
-      // console("Error: join() called with no children - join()\n");
       return -2;
    }
 
@@ -426,8 +416,8 @@ void quit(int code)
          {
             if (ProcTable[i].pid == child->pid)
             {
-               // Clear the process entry in the ProcTable
-               //memset(&ProcTable[i], 0, sizeof(proc_struct));
+               // Clear the process entry in the ProcTable 
+               // Setting status to empty allows other processes to overwrite, but retains data
                child->status = STATUS_EMPTY;
             }
          }
@@ -449,7 +439,7 @@ void quit(int code)
             // Wake up the zappers
             if (zapper->status == STATUS_BLOCKED_ZAP)
             {
-               zapper->status = STATUS_READY;                          // Set zapper status to ready
+               zapper->status = STATUS_READY;                              // Set zapper status to ready
                AddToList(&ReadyList[zapper->priority-1], zapper, 1);       // Add zapper to ready list
                RemoveFromList(&Current->zappers, zapper, 3);               // Remove zapper from Current's zapper list
             }
@@ -461,7 +451,7 @@ void quit(int code)
    p1_quit(Current->pid);
 
    // Check if process has already quit
-   if (Current->status == STATUS_EMPTY)   // Check if process has already quit
+   if (Current->status == STATUS_EMPTY)
    {  
       // Should never see this code if PCB cleanup is working properly
       console("Warning: Quitting process has already quit, calling dispatcher p quit()\n");
@@ -474,8 +464,6 @@ void quit(int code)
    // If process has a parent
    if (Current->pParent != NULL)
    {
-      // Tell the parent there is a quitting child (Done by setting status to STATUS_QUIT, as join looks for this)
-
       // If current proceess's parent is blocked -- SENTINEL's status is ready so it doesn't trigger the following logic
       if (Current->pParent->status == STATUS_BLOCKED_JOIN)
       {
@@ -483,9 +471,6 @@ void quit(int code)
          Current->pParent->status = STATUS_READY;             // Set parent status to ready
          AddToList(&ReadyList[Current->pParent->priority-1], Current->pParent, 1);      // Add parent to ready list
       }
-
-      // Remove this child from parent?
-
    }
    else
    {
@@ -498,21 +483,19 @@ void quit(int code)
       Current->status = STATUS_EMPTY;
       
       // Remove process from ready list 
-      if (Current->pid != 2)
+      if (Current->pid != 2) // If process is not start1
       {
          RemoveFromList(&ReadyList[Current->priority-1], Current, 1);   // remove it from ready list // THIS DIDN't work with start1
       }
       // Remove process from proc list
-       for (int i = 1; i < MAXPROC; i++)
+      for (int i = 1; i < MAXPROC; i++)
+      {
+         if (ProcTable[i].pid == Current->pid)
          {
-            if (ProcTable[i].pid == Current->pid)
-            {
-               // Clear the process entry in the ProcTable
-               memset(&ProcTable[i], 0, sizeof(proc_struct));
-            }
+            // Clear the process entry in the ProcTable
+            memset(&ProcTable[i], 0, sizeof(proc_struct));
          }
-         // Clean current's PCB ? (or did memset take care of that?)
-         //pcbClean(current);
+      }
    }
 
    // Don't decrement if we're sentinel
@@ -535,6 +518,7 @@ int zap(int pid)
 {
    int result = 0;
    proc_ptr pProcToZap;
+
    checkKernelMode();   // Check we're in kernel mode
 
    // Check if the process is trying to zap itself
@@ -543,7 +527,7 @@ int zap(int pid)
       halt(1);
    }
 
-   // Check if the process pid exists
+   // Check if the requested pid exists
    if (pid > MAXPROC || pid < 0) 
    {
       console("zap: attempting to zap a process that does not exist.\n");
@@ -602,7 +586,6 @@ void dispatcher(void) {
     context *pPrevContext=NULL;
     int currentClock = sys_clock();
 
-
     // Find the next process to run (returns current process or new process)
     next_process = GetNextReadyProc(); // What if we're waiting on a specific child to quit?
 
@@ -633,12 +616,9 @@ void dispatcher(void) {
 /* ------------------------------------------------------------------------
    Name - PopList()
    Purpose - to pop a process off the end of a linked list 
-   Parameters - the ProcList to pop an item off of
-
-   Do we want any additional argument passed?
-
-   You can use this function to add processes to the ready list like this:
-   PopList(&ReadyList[process_priority]);
+   Parameters - the ProcList to pop the oldest item off of the ready list
+   Returns - NULL if the list is empty
+             popedProc - the newly popped process
    ------------------------------------------------------------------------ */
 proc_ptr PopList(ProcList *list)
 {  
@@ -668,7 +648,6 @@ proc_ptr PopList(ProcList *list)
       poppedProc->next_proc_ptr->prev_proc_ptr   = NULL; // Update the next process's previous pointer to NULL
    }
 
-
    // Decrement the count of processes in the list
    list->count--;
 
@@ -694,7 +673,7 @@ int AddToList(ProcList *list, proc_ptr process, int type)
    }
 
    // Are we adding to ReadyList?
-   if (type == 1)
+   if (type == READY_LIST)
    {
       // Check if the process is already on the list
       proc_ptr current = list->pHead;
@@ -714,7 +693,7 @@ int AddToList(ProcList *list, proc_ptr process, int type)
    }
 
       // Update the new process's pointers
-      if (type == 2) // Use pSiblings
+      if (type == CHILDREN_LIST) // Use pSiblings
       {
          process->pNextSibling = NULL;
          process->pPrevSibling = list->pTail;
@@ -723,11 +702,11 @@ int AddToList(ProcList *list, proc_ptr process, int type)
       // Update the previous tail's next pointer to new process
       if (list->pTail != NULL)
       {
-         if (type == 1) // use next_proc_ptr
+         if (type == READY_LIST) // use next_proc_ptr
          {
             list->pTail->next_proc_ptr = process;
          }
-         if (type == 2) // use pNextSibling
+         if (type == CHILDREN_LIST) // use pNextSibling
          {
             list->pTail->pNextSibling = process;
          }
@@ -751,25 +730,33 @@ int AddToList(ProcList *list, proc_ptr process, int type)
 
 /* ------------------------------------------------------------------------
    Name - GetNextPid
-   Purpose - Allocates and returns the next available process ID (PID) for a new process. This function ensures that PIDs are unique and follow a sequential order, wrapping around when the maximum PID value is reached. It is a critical component for process management, ensuring that each process in the system is uniquely identifiable.
+   Purpose - Allocates and returns the next available process ID (PID) for a 
+             new process. This function ensures that PIDs are unique and 
+             follow a sequential order, wrapping around when the maximum PID 
+             value is reached. It is a critical component for process 
+             management, ensuring that each process in the system is uniquely 
+             identifiable.
    Parameters - None.
-   Returns - The next available PID as an integer. If the process table is full and no PIDs are available, it returns -1 to indicate an error.
-   Side Effects - Updates the global `next_pid` variable to the next available PID, ensuring uniqueness. If the process table is full, no changes are made to `next_pid`.
+   Returns - The next available PID as an integer. If the process table is 
+             full and no PIDs are available, it returns -1 to indicate an error.
+   Side Effects - Updates the global `next_pid` variable to the next available 
+                  PID, ensuring uniqueness. If the process table is full, no 
+                  changes are made to `next_pid`.
    ------------------------------------------------------------------------ */
-
 int GetNextPid()
 {
    int newPid = -1;                       // Initialize new pid to -1
    int procSlot = next_pid % MAXPROC;     // Assign new process to next_pid mod MAXPROC (to wrap around to 1, 2, 3, etc. from 50)
 
-   if (numProc < MAXPROC)
+   if (numProc < MAXPROC)  // If there's room for another process
    {
+      // Loop through until we find an empty slot
       while (numProc < MAXPROC && ProcTable[procSlot].status != STATUS_EMPTY)
       {
          next_pid++;
          procSlot = next_pid % MAXPROC;
       }
-      newPid = next_pid++;                // Assigns newPid to current next_pid value, then increments next_pid
+      newPid = next_pid++; // Assigns newPid to current next_pid value, then increments next_pid
    }
 
    return newPid;
@@ -777,19 +764,26 @@ int GetNextPid()
 
 /* ------------------------------------------------------------------------
    Name - GetNextReadyProc
-   Purpose - Selects and returns the next ready process to be executed by the dispatcher based on priority scheduling. This function is pivotal for implementing the scheduler's decision-making process, determining which process should be allocated CPU time next.
+   Purpose - Selects and returns the next ready process to be executed by 
+             the dispatcher based on priority scheduling. This function is 
+             pivotal for implementing the scheduler's decision-making 
+             process, determining which process should be allocated CPU time 
+             next.
    Parameters - None.
-   Returns - A pointer to the `proc_struct` of the next ready process. If no ready processes are available, it may return NULL or the sentinel process, ensuring the system remains operational.
-   Side Effects - May alter the state of the `Current` global variable if a new process is selected for execution. It does not directly modify the ready list but affects which process is considered the current running process.
+   Returns - A pointer to the `proc_struct` of the next ready process. If no 
+             ready processes are available, it may return NULL or the sentinel process, 
+             ensuring the system remains operational.
+   Side Effects - May alter the state of the `Current` global variable if a 
+                  new process is selected for execution. It does not directly modify the 
+                  ready list but affects which process is considered the current running 
+                  process.
    ------------------------------------------------------------------------ */
-
 proc_ptr GetNextReadyProc()
 {
    proc_ptr nextProc = NULL;
    int lookForNewProcess = 0;
 
    // first see if the current process is the highest
-
    // if there are processes running,
    if (Current != NULL && Current->status == STATUS_RUNNING)
    {  
@@ -800,7 +794,6 @@ proc_ptr GetNextReadyProc()
       {
          if (ReadyList[i].count > 0) // If there is and it is not it's child,
          {
-
             // look for new process
             lookForNewProcess = 1;
          }
@@ -864,12 +857,12 @@ proc_ptr GetNextReadyProc()
    Name - sentinel
    Purpose - The purpose of the sentinel routine is two-fold.  One
              responsibility is to keep the system going when all other
-	     processes are blocked.  The other is to detect and report
-	     simple deadlock states.
+	          processes are blocked.  The other is to detect and report
+	          simple deadlock states.
    Parameters - none
    Returns - nothing
    Side Effects -  if system is in deadlock, print appropriate error
-		   and halt.
+		             and halt.
    ----------------------------------------------------------------------- */
 // changed from void to char * again to meet phase1.h signature/usloss infrastructure
 int sentinel (char * dummy)
@@ -885,10 +878,20 @@ int sentinel (char * dummy)
 
 /* ------------------------------------------------------------------------
    Name - check_deadlock
-   Purpose - Evaluates the system's state to determine if a deadlock condition exists, where no processes can proceed due to circular resource dependencies. This function is pivotal for maintaining system stability and preventing indefinite process blockage. It is typically invoked by the sentinel process to ensure the system can recover from potential deadlock situations by halting if necessary.
+   Purpose - Evaluates the system's state to determine if a deadlock 
+            condition exists, where no processes can proceed due to circular resource 
+            dependencies. This function is pivotal for maintaining system stability 
+            and preventing indefinite process blockage. It is typically invoked by the 
+            sentinel process to ensure the system can recover from potential deadlock 
+            situations by halting if necessary.
    Parameters - None.
-   Returns - Nothing directly. However, the function may halt the system with an appropriate error code depending on the deadlock analysis.
-   Side Effects - The system may halt if a deadlock is detected, indicating a severe system state where no further progress can be made. This function also interacts with the `check_io` function to determine if ongoing I/O operations could resolve the deadlock, influencing the decision to halt.
+   Returns - Nothing directly. However, the function may halt the system with 
+             an appropriate error code depending on the deadlock analysis.
+   Side Effects - The system may halt if a deadlock is detected, indicating a 
+                  severe system state where no further progress can be made. 
+                  This function also interacts with the `check_io` function to 
+                  determine if ongoing I/O operations could resolve the deadlock, 
+                  influencing the decision to halt.
    ------------------------------------------------------------------------ */
 
 static void check_deadlock()
@@ -914,20 +917,33 @@ static void check_deadlock()
    }
 } /* check_deadlock */
 
+
 // Dummy function for future phase
 int check_io()
 {
    return 0;
 }
 
+
 /* ------------------------------------------------------------------------
    Name - disableInterrupts
-   Purpose - This function plays a critical role in ensuring system stability and integrity by disabling interrupts, thus preventing the current execution context from being preempted. It is typically invoked when entering critical sections of code where atomicity and consistency must be maintained, such as during modifications to global data structures or process control blocks (PCBs).
+   Purpose - This function plays a critical role in ensuring system stability 
+               and integrity by disabling interrupts, thus preventing the 
+               current execution context from being preempted. It is typically 
+               invoked when entering critical sections of code where atomicity 
+               and consistency must be maintained, such as during modifications 
+               to global data structures or process control blocks (PCBs).
    Parameters - None.
-   Returns - Nothing directly, but the effect is to modify the processor's status register to disable interrupts.
-   Side Effects - By disabling interrupts, this function temporarily suspends the system's ability to respond to external events and interrupts. This includes clock interrupts, I/O interrupts, and other interrupt-driven mechanisms. While necessary for critical sections, excessive use or failure to re-enable interrupts promptly can lead to system unresponsiveness and decreased performance due to missed interrupts.
+   Returns - Nothing directly, but the effect is to modify the processor's 
+             status register to disable interrupts.
+   Side Effects - By disabling interrupts, this function temporarily suspends 
+                  the system's ability to respond to external events and 
+                  interrupts. This includes clock interrupts, I/O interrupts, 
+                  and other interrupt-driven mechanisms. While necessary for 
+                  critical sections, excessive use or failure to re-enable 
+                  interrupts promptly can lead to system unresponsiveness and 
+                  decreased performance due to missed interrupts.
    ------------------------------------------------------------------------ */
-
 void disableInterrupts()
 {
    /* turn the interrupts OFF iff we are in kernel mode */
@@ -939,29 +955,43 @@ void disableInterrupts()
 } /* disableInterrupts */
 
 
-/* TODO: Clock Handler function */
+/* ------------------------------------------------------------------------
+   Name - clockHandler
+   Purpose - This function is called when a clock interrupt occurs. It calls
+             time_slice() after checking kernel mode to check if the current
+             process has exceeded its current time slice.
+   Parameters - None.
+   Returns - None
+   ------------------------------------------------------------------------ */
 void clockHandler(int dev, void *pUnit)
 {
    checkKernelMode();
-
    // Clock interrupt has occurred
-   //printf("\n-- Clock Interrupt occurred --\n\n");
    // time slice (check if time is up, if so, make ready and dispatch)
    time_slice();
 }
 
-// Returns the time (in microseconds) at which the currently executing process began its time slice
+/* ------------------------------------------------------------------------
+   Name - read_cur_start_time 
+   Purpose - Returns the time (in microseconds) at which the currently 
+             executing process began its time slice
+   Parameters - None.
+   Returns - None
+   ------------------------------------------------------------------------ */
 int read_cur_start_time(void)
 {
    return Current->tsStart;
 }
 
-// check if time is up, if so, make ready and dispatch
+/* ------------------------------------------------------------------------
+   Name - time_slice
+   Purpose - Checks if the current process has exceeded its time slice, if 
+             so, take it off the cpu, update it's cpu time and dispatch.
+   Parameters - None.
+   Returns - None
+   ------------------------------------------------------------------------ */
 void time_slice(void)
 {
-   // get system time
-   // int currentTime = sys_clock();   // sys_clock() returns time in microseconds
-
    // subtract current time from process time 
    int timeUsed = readtime();
    if (timeUsed > 80) // If current process has exceeded it's time slice
@@ -985,6 +1015,16 @@ void time_slice(void)
    }
 }
 
+/* ------------------------------------------------------------------------
+   Name - readtime
+   Purpose - This operation returns the CPU time (in milliseconds) used by 
+             the current process. This means that the kernel must record the 
+             amount of processor time used by each processReturns the time 
+             (in microseconds) at which the currently executing process began 
+             its time slice.
+   Parameters - None.
+   Returns - time used by currrent process in milliseconds
+   ------------------------------------------------------------------------ */
 int readtime(void)
 {
    // Get Current time
@@ -1041,24 +1081,17 @@ void checkKernelMode()
    }
 }
 
-/* ---------------------------------------------------------
-   Name - pcbClean
-   Purpose - Cleans up the pcb of the process
-   Parameters - none
-   Returns - none
-   Side Effects -
-   ---------------------------------------------------------*/
-void pcbClean(proc_ptr pcb)
-{
-   if (pcb != NULL)
-   {
-      //free(pcb);  // Free the pcb stack
-      memset(pcb, 0, sizeof(struct proc_struct)); // Clear the content of the PCB structure
-      //free(pcb);  // free the memory allocated for the PCB
-   }
-}
-
 // Removes a process from a list (ReadyList, children list or zappers list)
+/* ---------------------------------------------------------
+   Name - RemoveFromList
+   Purpose - Removes a process from a process list 
+             (ReadyList, children list or zappers list)
+   Parameters - list - a process list where the process to 
+                       remove resides
+                process - a process to remove from the list
+                type - the type of list
+   Returns - 1 for success
+   ---------------------------------------------------------*/
 int RemoveFromList(ProcList* list, proc_ptr process, int type) 
 {
     if (process == NULL) 
@@ -1070,36 +1103,32 @@ int RemoveFromList(ProcList* list, proc_ptr process, int type)
     // Check if the process to remove is the head of the list
     if (list->pHead == process) 
     {
-      if (type == 1) // Use proc_ptrs
+      if (type == READY_LIST) // Use proc_ptrs
       {
          list->pHead = process->next_proc_ptr;
       }
-      if (type == 2) // Use pSiblings
+      if (type == CHILDREN_LIST) // Use pSiblings
       {
          // Update the head to point to the next process
          list->pHead = process->pNextSibling;
-      }
-      if (type == 3)
-      {
-         // Equivalent for next_zapper
       }
     }
 
     // Check if the process to remove is the tail of the list
     if (list->pTail == process) 
     {
-      if (type == 1)
+      if (type == READY_LIST)
       {
          list->pTail = process->prev_proc_ptr;
       }
-      if (type == 2)
+      if (type == CHILDREN_LIST)
       {
         // Update the tail to point to the previous process
         list->pTail = process->pPrevSibling;
       }
     }
 
-   if (type == 1)
+   if (type == READY_LIST)
    {
 
       // Update the next and prev pointers of adjacent processes
@@ -1125,7 +1154,7 @@ int RemoveFromList(ProcList* list, proc_ptr process, int type)
       process->prev_proc_ptr = NULL;
 
    }
-   if (type == 2)
+   if (type == CHILDREN_LIST)
    {
       // Update the next and prev pointers of adjacent processes
       if (process->pNextSibling != NULL && process->pPrevSibling != NULL) 
@@ -1156,6 +1185,7 @@ int RemoveFromList(ProcList* list, proc_ptr process, int type)
     // Return 1 for success
     return 1;
 }
+
 /* ---------------------------------------------------------
    Name - dump_processes
    Purpose -  For each PCB in the process table print (at a minimum) its PID, parent’s 
@@ -1171,7 +1201,6 @@ void dump_processes(void)
 
    // Collumn headers
    printf("%-5s%-8s%-10s%-15s%-8s%-10s%s\n", "PID", "Parent", "Priority", "Status", "# Kids", "CPUtime", "Name");
-
 
    // Traverse through each process
    for (int i = 0; i < MAXPROC; ++i)
@@ -1208,6 +1237,13 @@ void dump_processes(void)
    }
 }
 
+/* ---------------------------------------------------------
+   Name - is_zapped
+   Purpose -  Check if a process has been zapped
+   Parameters - none
+   Returns - 1 if process is zapped, otherwise 0
+   Side Effects -
+---------------------------------------------------------*/
 int is_zapped(void)
 {
    checkKernelMode();   // Ensure we are in kernel mode
@@ -1220,14 +1256,30 @@ int is_zapped(void)
    else return 0;
 }
 
-// Returns pid from current process
+/* ---------------------------------------------------------
+   Name - getpid
+   Purpose -  return the Current process's pid
+   Parameters - none
+   Returns - Current process's pid
+---------------------------------------------------------*/
 int getpid(void)
 {
    int pid = Current->pid; // Grab pid from current process
    return pid; // Return it
 }
 
-// Blocks current process (new status must be larger than 10)
+
+/* ---------------------------------------------------------
+   Name - getpid
+   Purpose -  This operation blocks the calling process. The 
+              new_status parameter must be larger than 10; 
+              if it is not, then halt USLOSS with an appropriate 
+              error message.
+   Parameters - The new_status parameter is the value used
+                to indicate the status of the process in the 
+                dump processes command.
+   Returns - Current process's pid
+---------------------------------------------------------*/
 int block_me(int new_status)
 {
    int result = 0;
@@ -1253,6 +1305,22 @@ int block_me(int new_status)
    return result;
 }/* block me */
 
+/* ---------------------------------------------------------
+   Name - unblock_proc
+   Purpose -  This operation unblocks the process with pid 
+              that had previously been blocked by calling 
+              block_me().
+   Parameters - The process id that had previously been blocked.
+   Returns - 
+             -2: if the indicated process was not blocked, 
+                 does not exist, is the Current process, or 
+                 is blocked on a status less than or equal to 10. 
+                 Thus, a zap or join blocked process cannot be 
+                 unblocked with this function call.
+             -1: if the calling process was zapped
+              0: otherwise
+   Side Effects - dispatcher will be called
+---------------------------------------------------------*/
 int unblock_proc(int pid)
 {
    int result = 0;
@@ -1291,8 +1359,21 @@ int unblock_proc(int pid)
    return result;
 }
 
-// Updates the cpu time for a process being taken off the CPU
-// Returns 0 if process is not running
+/* ---------------------------------------------------------
+   Name - updateCpuTime
+   Purpose -  This operation updates a process's CPU time when
+               it is coming off the CPU. If the process being
+               passed is not currently running, it returns 0.
+               Else, it returns the the new CPU time of the
+               process.
+   Parameters - The process to update
+   Returns - 
+             process->cpu_time: the process's new cpu time
+             0: if the process is not coming off the cpu
+   Side Effects - the process's status will be set to 
+                  STATUS_CPUCALC until the calling function
+                  sets the process's status back to ready.
+---------------------------------------------------------*/
 int updateCpuTime(proc_ptr process)
 {
    int currentTime = sys_clock();   // Get system time 
