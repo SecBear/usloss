@@ -5,6 +5,8 @@
    The University of Arizona
    CSCV 452
 
+   Bryce Thorpe & Vivek Madala
+
    ------------------------------------------------------------------------ */
 #include <stdlib.h>
 #include <phase1.h>
