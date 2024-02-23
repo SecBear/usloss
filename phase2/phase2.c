@@ -108,6 +108,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 
 } /* MboxSend */
 
+int MboxCondSend(); // non-blocking send
 
 /* ------------------------------------------------------------------------
    Name - MboxReceive
@@ -118,7 +119,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    Returns - actual size of msg if successful, -1 if invalid args.
    Side Effects - none.
   ----------------------------------------------------------------------- */
-int mBoxReceive(int mbox_id, void *msg_ptr, int msg_size)
+int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
 {
    // block until message is here (using semaphores)
    // Add to Waiting list of processes to recieve a message?
@@ -128,6 +129,8 @@ int mBoxReceive(int mbox_id, void *msg_ptr, int msg_size)
    // disable/enable interrupts?
 
 } /* MboxReceive */
+
+int MboxCondReceive(); // non-blocking receive
 
 
 int check_io(){
