@@ -54,16 +54,16 @@ int start1(char *arg)
    if (DEBUG2 && debugflag2)
       console("start1(): at beginning\n");
 
-   //check_kernel_mode("start1");
+   check_kernel_mode("start1");
 
    /* Disable interrupts */
-   //disableInterrupts();
+   disableInterrupts();
 
    /* Initialize the mail box table, slots, & other data structures.
     * Initialize int_vec and sys_vec, allocate mailboxes for interrupt
     * handlers.  Etc... */
 
-   //enableInterrupts();
+   enableInterrupts();
 
    /* Create a process for start2, then block on a join until start2 quits */
    if (DEBUG2 && debugflag2)
@@ -88,6 +88,7 @@ int start1(char *arg)
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
+
 } /* MboxCreate */
 
 
@@ -101,6 +102,10 @@ int MboxCreate(int slots, int slot_size)
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+   check_kernel_mode();
+
+   // Is anyone waiting?
+
 } /* MboxSend */
 
 
@@ -112,9 +117,16 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
                 can be received.
    Returns - actual size of msg if successful, -1 if invalid args.
    Side Effects - none.
-   ----------------------------------------------------------------------- */
-int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
+  ----------------------------------------------------------------------- */
+int mBoxReceive(int mbox_id, void *msg_ptr, int msg_size)
 {
+   // block until message is here (using semaphores)
+   // Add to Waiting list of processes to recieve a message?
+
+   // Do a thing
+
+   // disable/enable interrupts?
+
 } /* MboxReceive */
 
 

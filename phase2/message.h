@@ -7,6 +7,8 @@ typedef struct mbox_proc *mbox_proc_ptr;
 struct mailbox {
    int           mbox_id;
    /* other items as needed... */
+   // Array or linked list of slots? Array of linked lists?
+   // List of processes that are waiting to receive 
 };
 
 struct mail_slot {
