@@ -88,6 +88,14 @@ int start1(char *arg)
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
+   // Similar to what we did with proc table
+   // MAXMBOX constant = max number of mailboxes
+
+   // Look through all mailboxes, when found one, return it, 
+   // mboxid % MAXMBOX to wrap around
+
+   // Single slot mailbox for mutex (only one message in mailbox at a time)
+   // multi-slot mailboxes can be used to implement semaphore (>=0)
 
 } /* MboxCreate */
 
@@ -100,11 +108,13 @@ int MboxCreate(int slots, int slot_size)
    Returns - zero if successful, -1 if invalid args.
    Side Effects - none.
    ----------------------------------------------------------------------- */
-int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
+int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
    check_kernel_mode();
 
    // Is anyone waiting?
+
+   // Block calling process until message is placed in a slot in the mailbozx
 
 } /* MboxSend */
 
@@ -119,7 +129,7 @@ int MboxCondSend(); // non-blocking send
    Returns - actual size of msg if successful, -1 if invalid args.
    Side Effects - none.
   ----------------------------------------------------------------------- */
-int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
+int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
    // block until message is here (using semaphores)
    // Add to Waiting list of processes to recieve a message?
