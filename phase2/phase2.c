@@ -24,8 +24,11 @@ extern int start2 (char *);
 
 int debugflag2 = 0;
 
-/* the mail boxes */
+/* array of 2000 mail boxes */
 mail_box MailBoxTable[MAXMBOX];
+
+/* array of mail box processes (proc table) */
+static struct mbox_proc MboxProcs[MAXPROC]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
 
 
 /* -------------------------- Functions -----------------------------------

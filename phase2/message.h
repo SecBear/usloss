@@ -29,3 +29,13 @@ union psr_values {
    struct psr_bits bits;
    unsigned int integer_part;
 };
+
+// Waiting list
+struct WAITINGPROC
+{
+   int pid;                      // pid of waiting process
+   // Add Process info here
+   struct next_proc *next_ptr;   // pointer to the next process that's waiting
+};
+
+// Process table? (use getnextpid() % MAXPROC to get new pids for new proc table)
