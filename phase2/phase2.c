@@ -12,12 +12,22 @@
 #include <phase1.h>
 #include <phase2.h>
 #include <usloss.h>
+#include <string.h>
 
 #include "message.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
 int start1 (char *);
 extern int start2 (char *);
+int MboxCreate(int slots, int slot_size);
+int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
+int MboxCondSend();
+int MboxReceive(int mbox_id, void *msg_ptr, int msg_size);
+int MboxCondReceive();
+int GetNextReadyMboxID();
+int AddToWaitList(mbox_id);
+int GetNextReadyMboxID();
+char* GetNextReadyMsg(int mbox_id);
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -28,7 +38,7 @@ int debugflag2 = 0;
 mail_box MailBoxTable[MAXMBOX];
 
 /* array of mail box processes (proc table) */
-static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
+//static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
 
 int slot_count = 0; // Integer to keep track of total number of slots
 
@@ -242,7 +252,8 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    }
 
    // Grab the next available message and free the mailbox slot
-   char* message = GetNextReadyMsg();
+   char* message = NULL;
+   message = GetNextReadyMsg(mbox_id);
 
    // Put the message from the mailbox slot into the receiver's buffer
    memcpy(msg_ptr, message, sizeof(message));
@@ -263,27 +274,27 @@ int GetNextReadyMboxID()
 {
    int mbox_id = 0;
 
+
    return mbox_id;
 }
 
 // AddToList functions to add an item to the end of a linked list
 
 // Add the process to a mailbox's list of watiing processes
-AddToWaitList(mbox_id)
+int AddToWaitList(mbox_id)
 {
    mail_box mbox = MailBoxTable[mbox_id]; // Get mailbox
    int pid = getpid();  // Get process id - not sure how to access processes yet
-
-
 
 }
 
 // PopList functions to pop the first item added to the linked list (head)
 
 // Get the next ready message in a mailbox
-char* GetNextReadyMsg(mbox_id)
+char* GetNextReadyMsg(int mbox_id)
 {
    mail_box mbox = MailBoxTable[mbox_id]; // Get the mail box
+   char* message = NULL;
 
    // Check that mail box has a slot available
    if (mbox.available_messages <= 0)
@@ -300,7 +311,7 @@ char* GetNextReadyMsg(mbox_id)
          // if there is, pop it off and return it
          char* message = current->message;   // store message
          memset(current->message, 0, MAX_MESSAGE);  // clean the slot
-         return current->message;            // return the message
+         return message;            // return the message
       }
       current = current->next_slot; // If not, on to the next slot
    }
