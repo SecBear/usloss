@@ -9,7 +9,7 @@ typedef struct slot_list *slot_list;      // Linked list of slots for a mailbox
 struct mailbox {                       // A mailbox
    int      mbox_id;
    /* other items as needed... */
-   // int      max_slots;                 // Integer to hold the allocated slots for this mbox - slot_list->count takes care of this
+   int      available_messages;        // Int to hold the count of available messages in this mbox (for recieve)
    slot_list slot_list;                // Linked list of slots (ptr)
    waiting_list waiting_list;          // List of processes that are waiting to receive (ptr)
 };

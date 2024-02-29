@@ -219,14 +219,33 @@ int MboxCondSend(); // non-blocking send
   ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
-   // is somebody already waiitng on a send? (not sure what to do in this case)
+    // First, check for basic errors
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   {
+      // Error message here
+      return -1;
+   }
+
+   // Get the mailbox
+   mail_box mbox = MailBoxTable[mbox_id];
+
+   // is somebody already waiitng on a send? (block until it's my turn?)
 
    // block until message is here (using semaphores)
-      // Do i have any messages in this mailbox?
-         // if no, block_me(), NOTE: MboxSend should unblock this
-   // Add to Waiting list of processes to recieve a message?
+   // Do i have any messages in this mailbox?
+   if (mbox.available_messages <= 0)
+   {
+      // if no, block_me(), NOTE: MboxSend should unblock this
+      block_me(1); // Not sure what the 1 status is or what status we should use here
+      // Add to Waiting list of processes to recieve a message?
 
-   // Pull the message from the mailbox slot to the calling process
+   }
+
+   // Grab the next available message and free the mailbox slot
+   char* message = GetNextReadyMsg();
+
+   // Put the message from the mailbox slot into the receiver's buffer
+   memcpy(msg_ptr, message, sizeof(message));
 
    // disable/enable interrupts?
 
@@ -240,13 +259,53 @@ int check_io(){
 }
 
 // Get the next ready mailbox ID and return it
-int GetNextReadyMboxID();
+int GetNextReadyMboxID()
 {
    int mbox_id = 0;
 
    return mbox_id;
 }
 
-// AddToList function to add an item to the end of a linked list
+// AddToList functions to add an item to the end of a linked list
 
-// PopList function to pop the first item added to the linked list (head)
+// Add the process to a mailbox's list of watiing processes
+AddToWaitList(mbox_id)
+{
+   mail_box mbox = MailBoxTable[mbox_id]; // Get mailbox
+   int pid = getpid();  // Get process id - not sure how to access processes yet
+
+
+
+}
+
+// PopList functions to pop the first item added to the linked list (head)
+
+// Get the next ready message in a mailbox
+char* GetNextReadyMsg(mbox_id)
+{
+   mail_box mbox = MailBoxTable[mbox_id]; // Get the mail box
+
+   // Check that mail box has a slot available
+   if (mbox.available_messages <= 0)
+   {
+      return NULL;
+   }
+
+   slot_ptr current = mbox.slot_list->head_slot;
+   while (current != NULL)
+   {
+      // Iterate through each slot and check if there's an available message
+      if (current->message != NULL)
+      {
+         // if there is, pop it off and return it
+         char* message = current->message;   // store message
+         memset(current->message, 0, MAX_MESSAGE);  // clean the slot
+         return current->message;            // return the message
+      }
+      current = current->next_slot; // If not, on to the next slot
+   }
+
+   printf("ERROR: GetNextReadyMsg: no slot available?? please investigate\n");
+   halt(1);
+}
+
