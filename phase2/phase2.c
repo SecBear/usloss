@@ -28,7 +28,9 @@ int debugflag2 = 0;
 mail_box MailBoxTable[MAXMBOX];
 
 /* array of mail box processes (proc table) */
-static struct mbox_proc MboxProcs[MAXPROC]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
+static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
+
+int slot_count = 0; // Integer to keep track of total number of slots
 
 
 /* -------------------------- Functions -----------------------------------
@@ -91,15 +93,58 @@ int start1(char *arg)
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
+   int mbox_id;
+   // Check kernel mode?
+
+   // Check for simple errors
+   if (slots < 1 || slot_size < 1 || slots + slot_count > MAXSLOTS) // If we're trying to create too many slots
+   {
+      return -1;
+   }
+
    // Similar to what we did with proc table
    // MAXMBOX constant = max number of mailboxes
 
    // Look through all mailboxes, when found one, return it, 
-   // mboxid % MAXMBOX to wrap around
+   // mbox_id % MAXMBOX to wrap around
+   mbox_id = getNextReadyMboxID();
+
+   // Define mailbox in the MailBoxTable
+   struct mailbox mbox = MailBoxTable[mbox_id]; 
 
    // Single slot mailbox for mutex (only one message in mailbox at a time)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
 
+   // Initialize mailbox items
+   mbox.mbox_id = mbox_id;
+   mbox.slot_list->count = slots;
+   mbox.slot_list->head_slot = NULL;
+   mbox.slot_list->tail_slot = NULL;
+
+   // Initialize mailbox slots
+   slot_ptr prev_slot = NULL;
+   for (int i = 0; i < slots; ++i)
+   {
+      slot_ptr mbox_slot = (slot_ptr)malloc(slot_size); // Allocate memory for the slot
+      mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
+      mbox_slot->status = UNUSED;    // Assign slot's status 
+
+      // Update pointers in the slot list
+      if (mbox.slot_list->head_slot == NULL)
+      {
+         // If this is the first slot in the list
+         mbox.slot_list->head_slot = mbox_slot;    // Assign current to head
+         mbox.slot_list->tail_slot = mbox_slot;    // Assign current to tail
+      }
+      else
+      {
+         // Add the slot to the end of the list
+         mbox.slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
+         mbox.slot_list->tail_slot = mbox_slot;             // Assign current to tail
+      }  
+   } 
+
+   return mbox_id;
 } /* MboxCreate */
 
 
@@ -115,10 +160,50 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
 {
    check_kernel_mode();
 
-   // Is anyone waiting?
+   // First, check for basic errors
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   {
+      // Error message here
+      return -1;
+   }
 
-   // Block calling process until message is placed in a slot in the mailbozx
+   // Get the mailbox from the mail box table
+   mail_box mbox = MailBoxTable[mbox_id];
 
+   // If slot is available in this mailbox, allocate a slot from your mail slot table (MboxProcs)
+      // Iterate through each item in the mailbox slot list
+   slot_ptr current = mbox.slot_list->head_slot;
+   slot_ptr available_slot = NULL;
+   while (current != NULL) 
+   {
+      // Iterate throught the slot list to find an available slot
+      if (current->status == UNUSED)
+      {
+         available_slot = current;
+         break;
+      }
+      current = current->next_slot;
+   }
+   if (available_slot == NULL)
+   {
+      // If no available slot was found, block the sender, add sender to waiting list
+      //return -1;
+      block_me(1); // Not sure what status to use
+   }
+
+   // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
+      // if so, we need to copy that data into the mailbox and unblock the process that's waiting
+
+   // Block calling process until message is placed in a slot in the mailbox
+
+   // Copy the message into the next empty mail slot
+   memcpy(available_slot->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
+
+
+   // Update slot status and any waiting processes 
+
+
+   return 0;
 } /* MboxSend */
 
 int MboxCondSend(); // non-blocking send
@@ -134,10 +219,14 @@ int MboxCondSend(); // non-blocking send
   ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
+   // is somebody already waiitng on a send? (not sure what to do in this case)
+
    // block until message is here (using semaphores)
+      // Do i have any messages in this mailbox?
+         // if no, block_me(), NOTE: MboxSend should unblock this
    // Add to Waiting list of processes to recieve a message?
 
-   // Do a thing
+   // Pull the message from the mailbox slot to the calling process
 
    // disable/enable interrupts?
 
@@ -149,3 +238,15 @@ int MboxCondReceive(); // non-blocking receive
 int check_io(){
     return 0; 
 }
+
+// Get the next ready mailbox ID and return it
+int GetNextReadyMboxID();
+{
+   int mbox_id = 0;
+
+   return mbox_id;
+}
+
+// AddToList function to add an item to the end of a linked list
+
+// PopList function to pop the first item added to the linked list (head)
