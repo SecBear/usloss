@@ -19,6 +19,9 @@
 /* ------------------------- Prototypes ----------------------------------- */
 int start1 (char *);
 extern int start2 (char *);
+void check_kernel_mode(char string[]);
+void disableInterrupts();
+static void enableInterrupts();
 int MboxCreate(int slots, int slot_size);
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondSend();
@@ -67,7 +70,9 @@ int start1(char *arg)
    int kid_pid, status; 
 
    if (DEBUG2 && debugflag2)
+   {
       console("start1(): at beginning\n");
+   }
 
    check_kernel_mode("start1");
 
@@ -91,6 +96,37 @@ int start1(char *arg)
    return 0;
 } /* start1 */
 
+
+void check_kernel_mode(char string[])
+{
+   int currentPsr =  psr_get();
+
+   // if the kernel mode bit is not set, then halt
+   // meaning if not in kernel mode, halt(1)
+   if ((currentPsr & PSR_CURRENT_MODE) == 0)
+   {
+      // not in kernel mode
+      console("%s, Kernel mode expected, but function called in user mode.\n", string);
+      halt(1);
+   }
+}
+
+void disableInterrupts()
+{
+   /* turn the interrupts OFF iff we are in kernel mode */
+   check_kernel_mode("disableInterrupts");
+  
+   /* We ARE in kernel mode */
+   psr_set( psr_get() & ~PSR_CURRENT_INT );
+
+} /* disableInterrupts */
+
+static void enableInterrupts()  
+{
+   int currentPsr = psr_get();   // Get current psr
+   int interruptEnable = currentPsr | PSR_CURRENT_INT;   // Set the interrupt enable bit to ON (0x2)
+   psr_set(interruptEnable);     // Set psr to new psr
+}
 
 /* ------------------------------------------------------------------------
    Name - MboxCreate
@@ -168,7 +204,7 @@ int MboxCreate(int slots, int slot_size)
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
-   check_kernel_mode();
+   check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
    if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
