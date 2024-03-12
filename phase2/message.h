@@ -9,6 +9,7 @@ typedef struct slot_list *slot_list;      // Linked list of slots for a mailbox
 struct mailbox {                       // A mailbox
    int      mbox_id;
    /* other items as needed... */
+   int      status;                    // Int to hold mailbox status (Used, Unused, etc.)
    int      available_messages;        // Int to hold the count of available messages in this mbox (for recieve)
    slot_list slot_list;                // Linked list of slots (ptr)
    waiting_list waiting_list;          // List of processes that are waiting to receive (ptr)
@@ -55,4 +56,4 @@ struct WAITINGPROC
 // Process table? (use getnextpid() % MAXPROC to get new pids for new proc table)
 
 /* CONSTANTS */
-#define UNUSED 0
+#define STATUS_EMPTY 0

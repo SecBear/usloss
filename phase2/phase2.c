@@ -27,9 +27,8 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondSend();
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondReceive();
-int GetNextReadyMboxID();
 int AddToWaitList(mbox_id);
-int GetNextReadyMboxID();
+int GetNextMboxID();
 char* GetNextReadyMsg(int mbox_id);
 
 
@@ -44,6 +43,9 @@ mail_box MailBoxTable[MAXMBOX];
 //static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
 
 int slot_count = 0; // Integer to keep track of total number of slots
+
+unsigned int next_mbox_id = 1;   // The next mbox_id to be assigned
+int numMbox = 0;                 // Number of currently active mailboxes
 
 
 /* -------------------------- Functions -----------------------------------
@@ -153,19 +155,22 @@ int MboxCreate(int slots, int slot_size)
 
    // Look through all mailboxes, when found one, return it, 
    // mbox_id % MAXMBOX to wrap around
-   mbox_id = getNextReadyMboxID();
+   mbox_id = GetNextMboxID();
 
    // Define mailbox in the MailBoxTable
-   struct mailbox mbox = MailBoxTable[mbox_id]; 
+   struct mailbox *mbox = &MailBoxTable[mbox_id]; 
 
    // Single slot mailbox for mutex (only one message in mailbox at a time)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
 
+   // Allocate memory for slot_list
+   mbox->slot_list = (struct slot_list*)malloc(sizeof(struct slot_list));
+
    // Initialize mailbox items
-   mbox.mbox_id = mbox_id;
-   mbox.slot_list->count = slots;
-   mbox.slot_list->head_slot = NULL;
-   mbox.slot_list->tail_slot = NULL;
+   mbox->mbox_id = mbox_id;
+   mbox->slot_list->count = slots;   
+   mbox->slot_list->head_slot = NULL;
+   mbox->slot_list->tail_slot = NULL;
 
    // Initialize mailbox slots
    slot_ptr prev_slot = NULL;
@@ -173,22 +178,23 @@ int MboxCreate(int slots, int slot_size)
    {
       slot_ptr mbox_slot = (slot_ptr)malloc(slot_size); // Allocate memory for the slot
       mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
-      mbox_slot->status = UNUSED;    // Assign slot's status 
+      mbox_slot->status = STATUS_EMPTY;    // Assign slot's status 
 
       // Update pointers in the slot list
-      if (mbox.slot_list->head_slot == NULL)
+      if (mbox->slot_list->head_slot == NULL)
       {
          // If this is the first slot in the list
-         mbox.slot_list->head_slot = mbox_slot;    // Assign current to head
-         mbox.slot_list->tail_slot = mbox_slot;    // Assign current to tail
+         mbox->slot_list->head_slot = mbox_slot;    // Assign current to head
+         mbox->slot_list->tail_slot = mbox_slot;    // Assign current to tail
       }
       else
       {
          // Add the slot to the end of the list
-         mbox.slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
-         mbox.slot_list->tail_slot = mbox_slot;             // Assign current to tail
+         mbox->slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
+         mbox->slot_list->tail_slot = mbox_slot;             // Assign current to tail
       }  
    } 
+   
 
    return mbox_id;
 } /* MboxCreate */
@@ -223,7 +229,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    while (current != NULL) 
    {
       // Iterate throught the slot list to find an available slot
-      if (current->status == UNUSED)
+      if (current->status == STATUS_EMPTY)
       {
          available_slot = current;
          break;
@@ -306,12 +312,24 @@ int check_io(){
 }
 
 // Get the next ready mailbox ID and return it
-int GetNextReadyMboxID()
+int GetNextMboxID()
 {
-   int mbox_id = 0;
+   int new_mbox_id = -1; // Initialize new mbox id to -1
+                  
+   int mboxSlot = next_mbox_id % MAXMBOX;     // Assign new mailbox to next_mbox_id mod MAXMBOX (to wrap around to 1, 2, 3, etc. from max)
 
+   if (numMbox < MAXMBOX)  // If there's room for another process
+   {
+      // Loop through until we find an empty slot
+      while (numMbox < MAXMBOX && MailBoxTable[mboxSlot].status != STATUS_EMPTY)
+      {
+         next_mbox_id++;
+         mboxSlot = next_mbox_id % MAXMBOX;
+      }
+      new_mbox_id = next_mbox_id++; // Assigns newPid to current next_pid value, then increments next_pid
+   }
 
-   return mbox_id;
+   return new_mbox_id;
 }
 
 // AddToList functions to add an item to the end of a linked list
