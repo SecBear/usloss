@@ -81,8 +81,26 @@ int start1(char *arg)
    /* Disable interrupts */
    disableInterrupts();
 
-   /* Initialize the mail box table, slots, & other data structures.
-    * Initialize int_vec and sys_vec, allocate mailboxes for interrupt
+   /* Initialize the mail box table, slots, & other data structures. */
+
+   for (int i = 0; i < MAXMBOX; i++)
+   {
+      // Status, ID and available messages
+      MailBoxTable[i].mbox_id = STATUS_UNUSED;
+      MailBoxTable[i].status = STATUS_EMPTY;
+      MailBoxTable[i].available_messages = STATUS_EMPTY;
+      // Slot List
+      //MailBoxTable[i].slot_list->mbox_id = STATUS_UNUSED;   // Slot list's MBOX ID
+      //MailBoxTable[i].slot_list->count = STATUS_EMPTY;      // Slot list's Slot count
+      //MailBoxTable[i].slot_list->head_slot = NULL;          // Slot list's pHead
+      //MailBoxTable[i].slot_list->tail_slot = NULL;          // Slot list's pTail
+      // Waiting List
+      //MailBoxTable[i].waiting_list->count = STATUS_EMPTY;   // Waiting list's count
+      //MailBoxTable[i].waiting_list->next_ptr = NULL;        // Waiting list's next pointer
+      //MailBoxTable[i].waiting_list->pid = STATUS_UNUSED;    // Waiting list item's pid
+   }
+
+   /* Initialize int_vec and sys_vec, allocate mailboxes for interrupt
     * handlers.  Etc... */
 
    enableInterrupts();
@@ -158,43 +176,64 @@ int MboxCreate(int slots, int slot_size)
    mbox_id = GetNextMboxID();
 
    // Define mailbox in the MailBoxTable
-   struct mailbox *mbox = &MailBoxTable[mbox_id]; 
+   //struct mailbox mbox = MailBoxTable[mbox_id]; 
 
    // Single slot mailbox for mutex (only one message in mailbox at a time)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
 
+   /* SLOTS*/ 
    // Allocate memory for slot_list
-   mbox->slot_list = (struct slot_list*)malloc(sizeof(struct slot_list));
+   MailBoxTable[mbox_id].slot_list = (struct slot_list*)malloc(sizeof(struct slot_list));
+   memset(MailBoxTable[mbox_id].slot_list, 0, sizeof(slot_list));   // Initialize the slot list with 0
+   MailBoxTable[mbox_id].slot_list->head_slot = NULL;
+   MailBoxTable[mbox_id].slot_list->tail_slot = NULL;
+   MailBoxTable[mbox_id].slot_list->count = 0;
+   MailBoxTable[mbox_id].slot_list->mbox_id = mbox_id;
 
-   // Initialize mailbox items
-   mbox->mbox_id = mbox_id;
-   mbox->slot_list->count = slots;   
-   mbox->slot_list->head_slot = NULL;
-   mbox->slot_list->tail_slot = NULL;
-
-   // Initialize mailbox slots
-   slot_ptr prev_slot = NULL;
+   // Initialize mailbox slots and link
    for (int i = 0; i < slots; ++i)
    {
-      slot_ptr mbox_slot = (slot_ptr)malloc(slot_size); // Allocate memory for the slot
+      slot_ptr mbox_slot = (slot_ptr)malloc(sizeof(struct mail_slot)); // Allocate memory for the slot
+
+      if (mbox_slot == NULL)
+      {
+         slot_ptr current_slot = MailBoxTable[mbox_id].slot_list->head_slot;
+         while (current_slot != NULL)
+         {
+            // Cleanup previously allocated slots
+            slot_ptr next_slot = current_slot->next_slot;
+            free(current_slot);
+            current_slot = next_slot;
+         }
+         free(MailBoxTable[mbox_id].slot_list); // Cleanup slot list
+         return -1;
+      }
+
       mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
+      mbox_slot->slot_id = i + 1;        // Assign slot's slot_id
       mbox_slot->status = STATUS_EMPTY;    // Assign slot's status 
 
+      // Link the slot
+      mbox_slot->next_slot = NULL;  // Set next to NULL
+      mbox_slot->prev_slot = MailBoxTable[mbox_id].slot_list->tail_slot; // Set prev to tail
+
       // Update pointers in the slot list
-      if (mbox->slot_list->head_slot == NULL)
+      if (MailBoxTable[mbox_id].slot_list->head_slot == NULL)
       {
          // If this is the first slot in the list
-         mbox->slot_list->head_slot = mbox_slot;    // Assign current to head
-         mbox->slot_list->tail_slot = mbox_slot;    // Assign current to tail
+         MailBoxTable[mbox_id].slot_list->head_slot = mbox_slot;    // Assign current to head
       }
       else
       {
          // Add the slot to the end of the list
-         mbox->slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
-         mbox->slot_list->tail_slot = mbox_slot;             // Assign current to tail
+         MailBoxTable[mbox_id].slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
       }  
+      MailBoxTable[mbox_id].slot_list->tail_slot = mbox_slot; // Update tail
+      MailBoxTable[mbox_id].slot_list->count++;               // Increment count of slots
+
    } 
-   
+   MailBoxTable[mbox_id].status = STATUS_USED;   // Update mailbox status
+   numMbox++;                    // Increment number of mailboxes
 
    return mbox_id;
 } /* MboxCreate */
@@ -315,18 +354,22 @@ int check_io(){
 int GetNextMboxID()
 {
    int new_mbox_id = -1; // Initialize new mbox id to -1
-                  
    int mboxSlot = next_mbox_id % MAXMBOX;     // Assign new mailbox to next_mbox_id mod MAXMBOX (to wrap around to 1, 2, 3, etc. from max)
 
    if (numMbox < MAXMBOX)  // If there's room for another process
    {
       // Loop through until we find an empty slot
-      while (numMbox < MAXMBOX && MailBoxTable[mboxSlot].status != STATUS_EMPTY)
+      while (MailBoxTable[mboxSlot].status != STATUS_EMPTY && mboxSlot != next_mbox_id)
       {
          next_mbox_id++;
          mboxSlot = next_mbox_id % MAXMBOX;
       }
-      new_mbox_id = next_mbox_id++; // Assigns newPid to current next_pid value, then increments next_pid
+
+      if (MailBoxTable[mboxSlot].status == STATUS_EMPTY)
+      {
+         new_mbox_id = next_mbox_id;   // Assigns new_mbox_id to current next_mbox_id value
+         next_mbox_id = (next_mbox_id + 1) % MAXMBOX; // Increment next_mbox_id for the next search
+      }
    }
 
    return new_mbox_id;

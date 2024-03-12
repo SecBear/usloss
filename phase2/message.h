@@ -17,6 +17,7 @@ struct mailbox {                       // A mailbox
 
 struct mail_slot {                     // A slot in the mailbox (doubly linked)
    int       mbox_id;
+   int       slot_id;               
    int       status;
    /* other items as needed... */
    char message[MAX_MESSAGE];          // A string to hold the message 
@@ -56,4 +57,6 @@ struct WAITINGPROC
 // Process table? (use getnextpid() % MAXPROC to get new pids for new proc table)
 
 /* CONSTANTS */
+#define STATUS_UNUSED -1
 #define STATUS_EMPTY 0
+#define STATUS_USED 1
