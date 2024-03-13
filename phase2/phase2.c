@@ -94,6 +94,7 @@ int start1(char *arg)
       MailBoxTable[i].mbox_id = STATUS_UNUSED;
       MailBoxTable[i].status = STATUS_EMPTY;
       MailBoxTable[i].available_messages = STATUS_EMPTY;
+      MailBoxTable[i].zero_slot = STATUS_UNUSED;
       // Slot List
       //MailBoxTable[i].slot_list->mbox_id = STATUS_UNUSED;   // Slot list's MBOX ID
       //MailBoxTable[i].slot_list->count = STATUS_EMPTY;      // Slot list's Slot count
@@ -181,7 +182,7 @@ int MboxCreate(int slots, int slot_size)
    // Check kernel mode?
 
    // Check for simple errors
-   if (slots < 1 || slot_size < 1 || slots + slot_count > MAXSLOTS) // If we're trying to create too many slots
+   if (slots < 0 || slot_size < 1 || slots + slot_count > MAXSLOTS) // If we're trying to create too many slots
    {
       return -1;
    }
@@ -198,8 +199,15 @@ int MboxCreate(int slots, int slot_size)
 
    // Single slot mailbox for mutex (only one message in mailbox at a time)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
+   if (slots == 0)   // If this is a zero slot mailbox,
+   {
+      MailBoxTable[mbox_id].zero_slot = 1;   // Zet zero_slot flag
+   }
+   else              // If not,
+   {
+      SlotListInit(&MailBoxTable[mbox_id], slots, slot_size);  // Initialize slots & slot list
+   }
 
-   SlotListInit(&MailBoxTable[mbox_id], slots, slot_size);  // Initialize slots & slot list
    WaitingListInit(&MailBoxTable[mbox_id]);                 // Initialize waiting list
 
    MailBoxTable[mbox_id].mbox_id = mbox_id;        // Update mailbox ID
@@ -232,6 +240,26 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // Get the mailbox from the mail box table
    mail_box *mbox = &MailBoxTable[mbox_id];
 
+   // If this is zero slot mailbox, 
+   if (mbox->zero_slot)
+   {
+      // Are there any recievers waiting to recieve a message? (Send to them)
+      if (mbox->waiting_list->count > 0) // Is anyone waiting on this mailbox?
+      {  
+         waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+         while (current != NULL) // Loop through Waiting list
+         {
+            if (current->status == STATUS_WAIT_RECEIVE)   // If this process is waiting to recieve
+            {
+               // Unblock the process and send the message to it
+
+            }
+            current = current->pNext; // Check the next wating process
+         }
+            // Otherwise wait for a reciever
+      }
+   }
+
    // If slot is available in this mailbox, allocate a slot from your mail slot table (MboxProcs)
       // Iterate through each item in the mailbox slot list
    slot_ptr current = mbox->slot_list->head_slot;   // Assign current to the head slot (from the mailbox's slot list)
@@ -249,8 +277,8 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    if (available_slot == NULL)   // If no available slot was found,
    {
       // block the sender, add sender to waiting list
-      // return -1;
       block_me(1); // Not sure what status to use
+      AddToWaitList(mbox, STATUS_WAIT_SEND); // Add this process to waiting list, waiting to send
    }
 
    // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
@@ -297,6 +325,29 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    if (mbox->waiting_list->count > 0)
    {
       block_me(1);
+   }
+
+   /* ZERO SLOT */
+   // If this is a zero slot mailbox,
+   if (mbox->zero_slot)
+   {
+      // Is there any senders waiting to send to this mailbox? (Grab them)
+      if (mbox->waiting_list->count > 0)
+      {
+         waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+         while (current != NULL) // Loop through Waiting list
+         {
+            if (current->status == STATUS_WAIT_SEND)   // If this process is waiting to send
+            {
+               // Unblock the process and receive the sender's message
+
+            }
+            current = current->pNext; // Check the next wating process
+         }
+      }
+      
+      //    Otherwise, wait for a sender
+         // Unblock the process and receive the sender's message
    }
 
    // block until message is here (using semaphores)
@@ -395,7 +446,7 @@ int GetNextSlotID()
 // AddToList functions to add an item to the end of a linked list
 
 // Add the current process to a mailbox's list of watiing processes
-int AddToWaitList(mbox_id)
+int AddToWaitList(int mbox_id, int status)
 {
    mail_box mbox = MailBoxTable[mbox_id]; // Get mailbox
    int pid = getpid();  // Get process id - not sure how to access processes yet
@@ -441,6 +492,9 @@ int AddToWaitList(mbox_id)
       {
          list->pHead = waiting_process;
       }
+
+      // Set process's status 
+      waiting_process->status = status;  
 
       // Increment the list count
       list->count++;

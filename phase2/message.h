@@ -14,6 +14,7 @@ struct mailbox {                       // A mailbox
    /* other items as needed... */
    int      status;                    // Int to hold mailbox status (Used, Unused, etc.)
    int      available_messages;        // Int to hold the count of available messages in this mbox (for recieve)
+   int      zero_slot;                 // 0 or 1 to indicate whether or not this is a zero-slot mailbox (initialized to -1)
    slot_list slot_list;                // Linked list of slots (ptr)
    waiting_list waiting_list;          // List of processes that are waiting to receive (ptr)
 };
@@ -41,6 +42,7 @@ struct waiting_proc              // Waiting process
 {
    int pid;                      // pid of waiting process
    int mbox_id;                  // Mailbox ID of the mailbox this process is waiting on
+   int status;                   // Status of the waiting process
    waiting_proc_ptr pNext;       // Pointer to next process in waiting list
    waiting_proc_ptr pPrev;       // Pointer to prev process in waiting list
    // Add Process info here
@@ -72,3 +74,5 @@ union psr_values {
 #define STATUS_UNUSED -1
 #define STATUS_EMPTY 0
 #define STATUS_USED 1
+#define STATUS_WAIT_SEND 2       // Waiting to send to a receiver
+#define STATUS_WAIT_RECEIVE 3    // Waiting to receive from a sender
