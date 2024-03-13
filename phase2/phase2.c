@@ -30,6 +30,7 @@ int MboxCondReceive();
 int AddToWaitList(mbox_id);
 int GetNextMboxID();
 char* GetNextReadyMsg(int mbox_id);
+void SlotListInit(mail_box *mbox, int slots, int slot_size);
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -181,58 +182,11 @@ int MboxCreate(int slots, int slot_size)
    // Single slot mailbox for mutex (only one message in mailbox at a time)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
 
-   /* SLOTS*/ 
-   // Allocate memory for slot_list
-   MailBoxTable[mbox_id].slot_list = (struct slot_list*)malloc(sizeof(struct slot_list));
-   memset(MailBoxTable[mbox_id].slot_list, 0, sizeof(slot_list));   // Initialize the slot list with 0
-   MailBoxTable[mbox_id].slot_list->head_slot = NULL;
-   MailBoxTable[mbox_id].slot_list->tail_slot = NULL;
-   MailBoxTable[mbox_id].slot_list->count = 0;
-   MailBoxTable[mbox_id].slot_list->mbox_id = mbox_id;
+   SlotListInit(&MailBoxTable[mbox_id], slots, slot_size);  // Initialize slots & slot list
+   WaitingListInit(&MailBoxTable[mbox_id]);                 // Initialize waiting list
 
-   // Initialize mailbox slots and link
-   for (int i = 0; i < slots; ++i)
-   {
-      slot_ptr mbox_slot = (slot_ptr)malloc(sizeof(struct mail_slot)); // Allocate memory for the slot
-
-      if (mbox_slot == NULL)
-      {
-         slot_ptr current_slot = MailBoxTable[mbox_id].slot_list->head_slot;
-         while (current_slot != NULL)
-         {
-            // Cleanup previously allocated slots
-            slot_ptr next_slot = current_slot->next_slot;
-            free(current_slot);
-            current_slot = next_slot;
-         }
-         free(MailBoxTable[mbox_id].slot_list); // Cleanup slot list
-         return -1;
-      }
-
-      mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
-      mbox_slot->slot_id = i + 1;        // Assign slot's slot_id
-      mbox_slot->status = STATUS_EMPTY;    // Assign slot's status 
-
-      // Link the slot
-      mbox_slot->next_slot = NULL;  // Set next to NULL
-      mbox_slot->prev_slot = MailBoxTable[mbox_id].slot_list->tail_slot; // Set prev to tail
-
-      // Update pointers in the slot list
-      if (MailBoxTable[mbox_id].slot_list->head_slot == NULL)
-      {
-         // If this is the first slot in the list
-         MailBoxTable[mbox_id].slot_list->head_slot = mbox_slot;    // Assign current to head
-      }
-      else
-      {
-         // Add the slot to the end of the list
-         MailBoxTable[mbox_id].slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
-      }  
-      MailBoxTable[mbox_id].slot_list->tail_slot = mbox_slot; // Update tail
-      MailBoxTable[mbox_id].slot_list->count++;               // Increment count of slots
-
-   } 
-   MailBoxTable[mbox_id].status = STATUS_USED;   // Update mailbox status
+   MailBoxTable[mbox_id].mbox_id = mbox_id;        // Update mailbox ID
+   MailBoxTable[mbox_id].status = STATUS_USED;     // Update mailbox status
    numMbox++;                    // Increment number of mailboxes
 
    return mbox_id;
@@ -263,22 +217,22 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
 
    // If slot is available in this mailbox, allocate a slot from your mail slot table (MboxProcs)
       // Iterate through each item in the mailbox slot list
-   slot_ptr current = mbox.slot_list->head_slot;
-   slot_ptr available_slot = NULL;
-   while (current != NULL) 
+   slot_ptr current = mbox.slot_list->head_slot;   // Assign current to the head slot (from the mailbox's slot list)
+   slot_ptr available_slot = NULL;                 
+   while (current != NULL) // While slot exists,
    {
       // Iterate throught the slot list to find an available slot
-      if (current->status == STATUS_EMPTY)
+      if (current->status == STATUS_EMPTY)   // If this slot is empty:
       {
-         available_slot = current;
+         available_slot = current;           // Assign this slot to current
          break;
       }
-      current = current->next_slot;
+      current = current->next_slot;          // Else, check next slot
    }
-   if (available_slot == NULL)
+   if (available_slot == NULL)   // If no available slot was found,
    {
-      // If no available slot was found, block the sender, add sender to waiting list
-      //return -1;
+      // block the sender, add sender to waiting list
+      // return -1;
       block_me(1); // Not sure what status to use
    }
 
@@ -321,26 +275,31 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    mail_box mbox = MailBoxTable[mbox_id];
 
    // is somebody already waiitng on a send? (block until it's my turn?)
+   if (mbox.waiting_list->count > 0)
+   {
+      block_me(1);
+   }
 
    // block until message is here (using semaphores)
-   // Do i have any messages in this mailbox?
-   if (mbox.available_messages <= 0)
+   if (mbox.available_messages <= 0) // Do i have any messages in this mailbox?
    {
       // if no, block_me(), NOTE: MboxSend should unblock this
       block_me(1); // Not sure what the 1 status is or what status we should use here
       // Add to Waiting list of processes to recieve a message?
-
    }
 
    // Grab the next available message and free the mailbox slot
-   char* message = NULL;
-   message = GetNextReadyMsg(mbox_id);
+   char* message = GetNextReadyMsg(mbox_id);
 
    // Put the message from the mailbox slot into the receiver's buffer
-   memcpy(msg_ptr, message, sizeof(message));
+   memcpy(msg_ptr, message, msg_size);      // Copy the message including null terminator
+
+   // Clean the slot
+   
 
    // disable/enable interrupts?
 
+   return 1; // success
 } /* MboxReceive */
 
 int MboxCondReceive(); // non-blocking receive
@@ -377,15 +336,99 @@ int GetNextMboxID()
 
 // AddToList functions to add an item to the end of a linked list
 
-// Add the process to a mailbox's list of watiing processes
+// Add the current process to a mailbox's list of watiing processes
 int AddToWaitList(mbox_id)
 {
    mail_box mbox = MailBoxTable[mbox_id]; // Get mailbox
    int pid = getpid();  // Get process id - not sure how to access processes yet
+   waiting_list list = mbox.waiting_list; // Get waiting list
 
+   // Add process to mailbox's waiting list
+   if (pid == NULL)
+   {
+      // Invalid process pointer
+      return 0;
+   }
+   
+   // Check if the process is already on the list
+   waiting_proc_ptr current = list->pHead;
+      if (current != NULL)
+      {
+         if (current->pid == pid)
+         {
+            // Process is already in the list
+            return 0;
+         }
+         current = current->pNext;   // Move to next process
+      }
+
+      // Allocate space for new waiting process
+      waiting_proc_ptr waiting_process = (waiting_proc_ptr)malloc(sizeof(waiting_proc_ptr)); // Allocate memory for the slot
+
+      // Update new process's pointers
+      waiting_process->pNext = NULL;
+      waiting_process->pPrev = list->pTail;
+      
+      // Update the previous tail's next pointer to new process
+      if (list->pTail != NULL)
+      {
+         list->pTail->pNext = waiting_process;
+      }
+
+      // New tail is the new process
+      list->pTail = waiting_process;
+
+      // If the list is empty, make new process the head
+      if (list->pHead == NULL)
+      {
+         list->pHead = waiting_process;
+      }
+
+      // Increment the list count
+      list->count++;
+
+      return 1;
 }
 
 // PopList functions to pop the first item added to the linked list (head)
+
+// Pops the head process from the waiting list and returns the waiting_proc_ptr
+waiting_proc_ptr popWaitList(int mbox_id)
+{
+   // Get waiting list
+   waiting_list list = MailBoxTable[mbox_id].waiting_list;
+
+   // Check if list is empty
+   if (list->count == 0)
+   {
+      return NULL;
+   }
+   
+   // Get the oldest item and replace list's head
+   waiting_proc_ptr poppedProc = list->pHead;  // get the head of the list (oldest item)
+   list->pHead = poppedProc->pNext; // update the head to the next process
+
+   // Update head/tail pointers
+   if (list->pHead == NULL)
+   {
+      list->pTail = NULL;  // If the head becomes NULL (no more items), update the tail as well
+   }
+   else
+   {
+      list->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
+   }
+
+   // Update the popped process's pointers
+   if (poppedProc->pNext != NULL)
+   {
+      poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
+   }
+
+   // Decrement the count of processes in the list
+   list->count--;
+
+   return poppedProc;
+}
 
 // Get the next ready message in a mailbox
 char* GetNextReadyMsg(int mbox_id)
@@ -396,7 +439,9 @@ char* GetNextReadyMsg(int mbox_id)
    // Check that mail box has a slot available
    if (mbox.available_messages <= 0)
    {
-      return NULL;
+      // If it doesn't, block_me and add to waiting list?
+      block_me(1);
+
    }
 
    slot_ptr current = mbox.slot_list->head_slot;
@@ -405,10 +450,8 @@ char* GetNextReadyMsg(int mbox_id)
       // Iterate through each slot and check if there's an available message
       if (current->message != NULL)
       {
-         // if there is, pop it off and return it
-         char* message = current->message;   // store message
-         memset(current->message, 0, MAX_MESSAGE);  // clean the slot
-         return message;            // return the message
+         // if there is, return it
+         return current->message;                              // return the message
       }
       current = current->next_slot; // If not, on to the next slot
    }
@@ -417,3 +460,75 @@ char* GetNextReadyMsg(int mbox_id)
    halt(1);
 }
 
+// Initializes the slot list of a mailbox
+   // Takes a pointer to the mailbox, the number and size of slots
+void SlotListInit(mail_box *mbox, int slots, int slot_size)
+{
+   int mbox_id;
+
+   // Allocate memory for slot_list
+   mbox->slot_list = (struct slot_list*)malloc(sizeof(struct slot_list));
+   memset(mbox->slot_list, 0, sizeof(slot_list));   // Initialize the slot list with 0
+   mbox->slot_list->head_slot = NULL;
+   mbox->slot_list->tail_slot = NULL;
+   mbox->slot_list->count = 0;
+   mbox->slot_list->mbox_id = mbox_id;
+
+   // Initialize mailbox slots and link
+   for (int i = 0; i < slots; ++i)
+   {
+      slot_ptr mbox_slot = (slot_ptr)malloc(sizeof(struct mail_slot)); // Allocate memory for the slot
+
+      if (mbox_slot == NULL)
+      {
+         slot_ptr current_slot = mbox->slot_list->head_slot;
+         while (current_slot != NULL)
+         {
+            // Cleanup previously allocated slots
+            slot_ptr next_slot = current_slot->next_slot;
+            free(current_slot);
+            current_slot = next_slot;
+         }
+         free(mbox->slot_list); // Cleanup slot list
+         return -1;
+      }
+
+      mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
+      mbox_slot->slot_id = i + 1;        // Assign slot's slot_id
+      mbox_slot->status = STATUS_EMPTY;    // Assign slot's status 
+
+      // Link the slot
+      mbox_slot->next_slot = NULL;  // Set next to NULL
+      mbox_slot->prev_slot = mbox->slot_list->tail_slot; // Set prev to tail
+
+      // Update pointers in the slot list
+      if (mbox->slot_list->head_slot == NULL)
+      {
+         // If this is the first slot in the list
+         mbox->slot_list->head_slot = mbox_slot;    // Assign current to head
+      }
+      else
+      {
+         // Add the slot to the end of the list
+         mbox->slot_list->tail_slot->next_slot = mbox_slot;  // Assign current to previous tail's next
+      }  
+      mbox->slot_list->tail_slot = mbox_slot; // Update tail
+      mbox->slot_list->count++;               // Increment count of slots
+   } 
+}
+
+// Initialize mailbox's waiting list
+void WaitingListInit(mail_box *mbox)
+{
+   int mbox_id;
+
+   // Allocate memory for waiting_list
+   mbox->waiting_list = (struct waiting_list*)malloc(sizeof(struct waiting_list));
+
+   // Initialize values
+   memset(mbox->waiting_list, 0, sizeof(struct waiting_list));   // Initialize the waiting list with 0s
+   mbox->waiting_list->pHead = NULL;
+   mbox->waiting_list->pTail = NULL;
+   mbox->waiting_list->count = 0;
+   mbox->waiting_list->mbox_id = mbox_id;
+}
