@@ -31,14 +31,16 @@ int AddToWaitList(mbox_id);
 int GetNextMboxID();
 char* GetNextReadyMsg(int mbox_id);
 void SlotListInit(mail_box *mbox, int slots, int slot_size);
+int GetNextSlotID();
 
 
 /* -------------------------- Globals ------------------------------------- */
 
 int debugflag2 = 0;
 
-/* array of 2000 mail boxes: NOTE: 2500 mail slots IN TOTAL, not per mailbox*/
-mail_box MailBoxTable[MAXMBOX];
+// Mailboxes & slots
+mail_box MailBoxTable[MAXMBOX];  // Array of 2000 mailboxes
+mail_slot MailSlotTable[MAXSLOTS];  // Array of 2500 Mail slots (NOTE: slot array/table is not the slot list)
 
 /* array of mail box processes (proc table) */
 //static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
@@ -46,7 +48,9 @@ mail_box MailBoxTable[MAXMBOX];
 int slot_count = 0; // Integer to keep track of total number of slots
 
 unsigned int next_mbox_id = 0;   // The next mbox_id to be assigned
+unsigned int next_slot_id = 0;   // The next slot_id to be assigned 
 int numMbox = 0;                 // Number of currently active mailboxes
+int numSlot = 0;                 // Number of currently active slots
 
 
 /* -------------------------- Functions -----------------------------------
@@ -83,7 +87,7 @@ int start1(char *arg)
    disableInterrupts();
 
    /* Initialize the mail box table, slots, & other data structures. */
-
+   // Mail box table
    for (int i = 0; i < MAXMBOX; i++)
    {
       // Status, ID and available messages
@@ -100,6 +104,19 @@ int start1(char *arg)
       //MailBoxTable[i].waiting_list->next_ptr = NULL;        // Waiting list's next pointer
       //MailBoxTable[i].waiting_list->pid = STATUS_UNUSED;    // Waiting list item's pid
    }
+
+   // Slot table
+   for (int i = 0; i < MAXSLOTS; i++)
+   {
+      // Status, mailbox ID, slot ID, status, next and prev slot
+      MailSlotTable[i].mbox_id = STATUS_UNUSED;
+      MailSlotTable[i].slot_id = STATUS_UNUSED;
+      MailSlotTable[i].status = STATUS_EMPTY;
+      MailSlotTable[i].message[MAX_MESSAGE] = NULL;
+      MailSlotTable[i].next_slot = NULL;
+      MailSlotTable[i].prev_slot = NULL;
+   }
+
 
    /* Initialize int_vec and sys_vec, allocate mailboxes for interrupt
     * handlers.  Etc... */
@@ -350,6 +367,31 @@ int GetNextMboxID()
    return new_mbox_id;
 }
 
+// Get the next ready slot ID and return it
+int GetNextSlotID()
+{
+   int new_slot_id = -1; // Initialize new mbox id to -1
+   int slot = next_slot_id % MAXSLOTS;     // Assign new mailbox to next_mbox_id mod MAXMBOX (to wrap around to 1, 2, 3, etc. from max)
+
+   if (numSlot < MAXSLOTS)  // If there's room for another process
+   {
+      // Loop through until we find an empty slot
+      while (MailSlotTable[slot].status != STATUS_EMPTY && slot != next_slot_id)
+      {
+         next_slot_id++;
+         slot_count = next_slot_id % MAXSLOTS;
+      }
+
+      if (MailSlotTable[slot].status == STATUS_EMPTY)
+      {
+         slot = next_slot_id;   // Assigns new_mbox_id to current next_mbox_id value
+         next_slot_id = (next_slot_id + 1) % MAXSLOTS; // Increment next_mbox_id for the next search
+      }
+   }
+
+   return slot;
+}
+
 // AddToList functions to add an item to the end of a linked list
 
 // Add the current process to a mailbox's list of watiing processes
@@ -509,9 +551,9 @@ void SlotListInit(mail_box *mbox, int slots, int slot_size)
          return -1;
       }
 
-      mbox_slot->mbox_id = mbox_id;  // Assign slot's mbox id
-      mbox_slot->slot_id = i + 1;        // Assign slot's slot_id
-      mbox_slot->status = STATUS_EMPTY;    // Assign slot's status 
+      mbox_slot->mbox_id = mbox_id;          // Assign slot's mbox id
+      mbox_slot->slot_id = GetNextSlotID();  // Assign slot's slot_id
+      mbox_slot->status = STATUS_EMPTY;      // Assign slot's status 
 
       // Link the slot
       mbox_slot->next_slot = NULL;  // Set next to NULL
