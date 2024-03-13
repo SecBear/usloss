@@ -213,11 +213,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    }
 
    // Get the mailbox from the mail box table
-   mail_box mbox = MailBoxTable[mbox_id];
+   mail_box *mbox = &MailBoxTable[mbox_id];
 
    // If slot is available in this mailbox, allocate a slot from your mail slot table (MboxProcs)
       // Iterate through each item in the mailbox slot list
-   slot_ptr current = mbox.slot_list->head_slot;   // Assign current to the head slot (from the mailbox's slot list)
+   slot_ptr current = mbox->slot_list->head_slot;   // Assign current to the head slot (from the mailbox's slot list)
    slot_ptr available_slot = NULL;                 
    while (current != NULL) // While slot exists,
    {
@@ -244,6 +244,8 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // Copy the message into the next empty mail slot
    memcpy(available_slot->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
 
+   // Increment the mailbox's available_messages
+   mbox->available_messages++;
 
    // Update slot status and any waiting processes 
 
@@ -272,16 +274,16 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    }
 
    // Get the mailbox
-   mail_box mbox = MailBoxTable[mbox_id];
+   mail_box *mbox = &MailBoxTable[mbox_id];
 
    // is somebody already waiitng on a send? (block until it's my turn?)
-   if (mbox.waiting_list->count > 0)
+   if (mbox->waiting_list->count > 0)
    {
       block_me(1);
    }
 
    // block until message is here (using semaphores)
-   if (mbox.available_messages <= 0) // Do i have any messages in this mailbox?
+   if (mbox->available_messages <= 0) // Do i have any messages in this mailbox?
    {
       // if no, block_me(), NOTE: MboxSend should unblock this
       block_me(1); // Not sure what the 1 status is or what status we should use here
@@ -295,7 +297,8 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    memcpy(msg_ptr, message, msg_size);      // Copy the message including null terminator
 
    // Clean the slot
-   
+   memset(message, 0, MAX_MESSAGE); // Zero out the message buffer
+   mbox->available_messages--;       // Decrement the mailbox's available_messages
 
    // disable/enable interrupts?
 
