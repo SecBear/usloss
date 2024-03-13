@@ -27,7 +27,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondSend();
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondReceive();
-int AddToWaitList(mbox_id);
+int AddToWaitList(int mbox_id, int status);
 int GetNextMboxID();
 char* GetNextReadyMsg(int mbox_id);
 void SlotListInit(mail_box *mbox, int slots, int slot_size);
@@ -41,6 +41,7 @@ int debugflag2 = 0;
 // Mailboxes & slots
 mail_box MailBoxTable[MAXMBOX];  // Array of 2000 mailboxes
 mail_slot MailSlotTable[MAXSLOTS];  // Array of 2500 Mail slots (NOTE: slot array/table is not the slot list)
+mbox_proc ProcTable[MAXPROC];       // Array of processes
 
 /* array of mail box processes (proc table) */
 //static struct mbox_proc MboxProcs[MAXSLOTS]; // NOTE: use `i = getpid()%MAXPROC` to get the next pid
@@ -95,15 +96,6 @@ int start1(char *arg)
       MailBoxTable[i].status = STATUS_EMPTY;
       MailBoxTable[i].available_messages = STATUS_EMPTY;
       MailBoxTable[i].zero_slot = STATUS_UNUSED;
-      // Slot List
-      //MailBoxTable[i].slot_list->mbox_id = STATUS_UNUSED;   // Slot list's MBOX ID
-      //MailBoxTable[i].slot_list->count = STATUS_EMPTY;      // Slot list's Slot count
-      //MailBoxTable[i].slot_list->head_slot = NULL;          // Slot list's pHead
-      //MailBoxTable[i].slot_list->tail_slot = NULL;          // Slot list's pTail
-      // Waiting List
-      //MailBoxTable[i].waiting_list->count = STATUS_EMPTY;   // Waiting list's count
-      //MailBoxTable[i].waiting_list->next_ptr = NULL;        // Waiting list's next pointer
-      //MailBoxTable[i].waiting_list->pid = STATUS_UNUSED;    // Waiting list item's pid
    }
 
    // Slot table
@@ -116,6 +108,15 @@ int start1(char *arg)
       MailSlotTable[i].message[MAX_MESSAGE] = NULL;
       MailSlotTable[i].next_slot = NULL;
       MailSlotTable[i].prev_slot = NULL;
+   }
+
+   // Proc table
+   for (int i = 0; i < MAXPROC; i++)
+   {
+      // PID, status, Message
+      ProcTable[i].status = STATUS_EMPTY;
+      ProcTable[i].pid = STATUS_UNUSED;
+      ProcTable[i].message[MAX_MESSAGE] = NULL;
    }
 
 
@@ -201,10 +202,11 @@ int MboxCreate(int slots, int slot_size)
    // multi-slot mailboxes can be used to implement semaphore (>=0)
    if (slots == 0)   // If this is a zero slot mailbox,
    {
-      MailBoxTable[mbox_id].zero_slot = 1;   // Zet zero_slot flag
+      MailBoxTable[mbox_id].zero_slot = 1;   // Zet zero_slot flag to 1
    }
    else              // If not,
    {
+      MailBoxTable[mbox_id].zero_slot = 0;                     // Set zero_slot flag to 0
       SlotListInit(&MailBoxTable[mbox_id], slots, slot_size);  // Initialize slots & slot list
    }
 
@@ -240,25 +242,29 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // Get the mailbox from the mail box table
    mail_box *mbox = &MailBoxTable[mbox_id];
 
-   // If this is zero slot mailbox, 
-   if (mbox->zero_slot)
-   {
-      // Are there any recievers waiting to recieve a message? (Send to them)
-      if (mbox->waiting_list->count > 0) // Is anyone waiting on this mailbox?
-      {  
-         waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
-         while (current != NULL) // Loop through Waiting list
+   // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
+      // if so, we need to copy that data into the mailbox and unblock the process that's waiting
+   if (mbox->waiting_list->count > 0) // Is anyone waiting on this mailbox?
+   {  
+      waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+      while (current != NULL) // Loop through Waiting list
+      {
+         if (current->process->status == STATUS_WAIT_RECEIVE)   // If this process is waiting to recieve
          {
-            if (current->status == STATUS_WAIT_RECEIVE)   // If this process is waiting to recieve
-            {
-               // Unblock the process and send the message to it
-
-            }
-            current = current->pNext; // Check the next wating process
+            // If this is a zero slot mailbox, 
+               // Do something
+            // Else, Unblock the process and send the message to that process directly
+            int pid = current->process->pid;
+            unblock_proc(pid);
+            // Remove process from waiting list
+            popWaitList(mbox_id);
+            // Direct send to the receiver who's waiting
+            memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
+            return 1; // success!
          }
-            // Otherwise wait for a reciever
+         current = current->pNext; // Check the next wating process
       }
-   }
+   }  // Else, nobody is waiting
 
    // If slot is available in this mailbox, allocate a slot from your mail slot table (MboxProcs)
       // Iterate through each item in the mailbox slot list
@@ -277,15 +283,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    if (available_slot == NULL)   // If no available slot was found,
    {
       // block the sender, add sender to waiting list
-      block_me(1); // Not sure what status to use
-      AddToWaitList(mbox, STATUS_WAIT_SEND); // Add this process to waiting list, waiting to send
+      AddToWaitList(mbox_id, STATUS_WAIT_SEND); // Add this process to waiting list, waiting to send
+      block_me(STATUS_WAIT_SEND); // Sender is waiting to send
    }
 
-   // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
-      // if so, we need to copy that data into the mailbox and unblock the process that's waiting
-
-   // Block calling process until message is placed in a slot in the mailbox
-
+   // Else, there is an available slot
    // Copy the message into the next empty mail slot
    memcpy(available_slot->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
 
@@ -293,7 +295,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    mbox->available_messages++;
 
    // Update slot status and any waiting processes 
-
+   available_slot->status == STATUS_USED;
 
    return 0;
 } /* MboxSend */
@@ -311,6 +313,8 @@ int MboxCondSend(); // non-blocking send
   ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
+   int zero_slot = 0;
+
     // First, check for basic errors
    if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
    {
@@ -321,43 +325,50 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // Get the mailbox
    mail_box *mbox = &MailBoxTable[mbox_id];
 
-   // is somebody already waiitng on a send? (block until it's my turn?)
-   if (mbox->waiting_list->count > 0)
+   // block until message is here (using semaphores)
+   if (mbox->available_messages <= 0) // If no messages in this mailbox,
    {
-      block_me(1);
+      AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE);          // Add to Waiting list of processes to recieve a message?
+      block_me(STATUS_WAIT_RECEIVE);   // Block with status waiting to receive
    }
 
-   /* ZERO SLOT */
-   // If this is a zero slot mailbox,
+   // Is this a zero slot?
    if (mbox->zero_slot)
    {
-      // Is there any senders waiting to send to this mailbox? (Grab them)
-      if (mbox->waiting_list->count > 0)
-      {
-         waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
-         while (current != NULL) // Loop through Waiting list
-         {
-            if (current->status == STATUS_WAIT_SEND)   // If this process is waiting to send
-            {
-               // Unblock the process and receive the sender's message
-
-            }
-            current = current->pNext; // Check the next wating process
-         }
-      }
-      
-      //    Otherwise, wait for a sender
-         // Unblock the process and receive the sender's message
+      // do something
+      printf("we're a zero slot! - do something with me!!! - returning 0\n");
+      return 0;
    }
 
-   // block until message is here (using semaphores)
-   if (mbox->available_messages <= 0) // Do i have any messages in this mailbox?
+    // is somebody waiting to send? (receieve from them directly)
+   if (mbox->waiting_list->count > 0)
    {
-      // if no, block_me(), NOTE: MboxSend should unblock this
-      block_me(1); // Not sure what the 1 status is or what status we should use here
-      // Add to Waiting list of processes to recieve a message?
-   }
+      // Find the process already waiting, see if they're waiting to send
+      waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+      while (current != NULL) // Loop through Waiting list
+      {
+         if (current->process->status == STATUS_WAIT_SEND)   // If this process is waiting to send
+         {
+            // Unblock the waiting process and receive the sender's message directly
+            unblock_proc(current->process->pid);   // Unblock already waiting process
+            // Get the message from the sender directly
+            memcpy(msg_ptr, current->process->message, msg_size);      // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
 
+            // Clean the slot
+            memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
+            mbox->available_messages--;       // Decrement the mailbox's available_messages
+
+            // Enable/Disable interrupts?
+
+            // Return 1 (success)
+            return 1;
+            }
+         }
+      current = current->pNext; // Check the next wating process
+   }
+   
+
+   // This process is the one to receive
    // Grab the next available message and free the mailbox slot
    char* message = GetNextReadyMsg(mbox_id);
 
@@ -463,7 +474,7 @@ int AddToWaitList(int mbox_id, int status)
    waiting_proc_ptr current = list->pHead;
       if (current != NULL)
       {
-         if (current->pid == pid)
+         if (current->process->pid == pid)
          {
             // Process is already in the list
             return 0;
@@ -474,7 +485,12 @@ int AddToWaitList(int mbox_id, int status)
       // Allocate space for new waiting process
       waiting_proc_ptr waiting_process = (waiting_proc_ptr)malloc(sizeof(waiting_proc_ptr)); // Allocate memory for the slot
 
-      // Update new process's pointers
+      // Assign process information
+      waiting_process->process = &ProcTable[pid];
+      waiting_process->process->pid = pid;
+      waiting_process->process->status = status;
+
+      // Update new waiting process's pointers
       waiting_process->pNext = NULL;
       waiting_process->pPrev = list->pTail;
       
@@ -493,9 +509,6 @@ int AddToWaitList(int mbox_id, int status)
          list->pHead = waiting_process;
       }
 
-      // Set process's status 
-      waiting_process->status = status;  
-
       // Increment the list count
       list->count++;
 
@@ -505,7 +518,7 @@ int AddToWaitList(int mbox_id, int status)
 // PopList functions to pop the first item added to the linked list (head)
 
 // Pops the head process from the waiting list and returns the waiting_proc_ptr
-waiting_proc_ptr popWaitList(int mbox_id)
+int popWaitList(int mbox_id)
 {
    // Get waiting list
    waiting_list list = MailBoxTable[mbox_id].waiting_list;
@@ -539,7 +552,7 @@ waiting_proc_ptr popWaitList(int mbox_id)
    // Decrement the count of processes in the list
    list->count--;
 
-   return poppedProc;
+   return 1;
 }
 
 // Get the next ready message in a mailbox
@@ -571,6 +584,8 @@ char* GetNextReadyMsg(int mbox_id)
    printf("ERROR: GetNextReadyMsg: no slot available?? please investigate\n");
    halt(1);
 }
+
+/* LIST INITIALIZATION FUNCTIONS */
 
 // Initializes the slot list of a mailbox
    // Takes a pointer to the mailbox, the number and size of slots

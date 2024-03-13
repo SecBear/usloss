@@ -2,7 +2,8 @@
 
 typedef struct mailbox mail_box;
 typedef struct mail_slot mail_slot;
-typedef struct mbox_proc *mbox_proc_ptr;        // Not sure where this comes in yet
+typedef struct mbox_proc mbox_proc;
+typedef struct mbox_proc *mbox_proc_ptr;        // Mailbox process?
 typedef struct mail_slot *slot_ptr;             // Mail slot
 typedef struct slot_list *slot_list;            // Linked list of slots for a mailbox
 typedef struct waiting_proc *waiting_proc_ptr;  // Waiting process
@@ -37,15 +38,22 @@ struct slot_list {                     // Linked list of slots for a mailbox
    int count;
 };
 
+/* PROCESS */
+struct mbox_proc
+{
+   int pid;
+   int status;
+   char message[MAX_MESSAGE];
+};
+
 /* WAITING */
 struct waiting_proc              // Waiting process
 {
-   int pid;                      // pid of waiting process
    int mbox_id;                  // Mailbox ID of the mailbox this process is waiting on
-   int status;                   // Status of the waiting process
    waiting_proc_ptr pNext;       // Pointer to next process in waiting list
    waiting_proc_ptr pPrev;       // Pointer to prev process in waiting list
    // Add Process info here
+   mbox_proc_ptr process;        // The process
 };
 
 struct waiting_list {            // List of waiting processes
@@ -74,5 +82,5 @@ union psr_values {
 #define STATUS_UNUSED -1
 #define STATUS_EMPTY 0
 #define STATUS_USED 1
-#define STATUS_WAIT_SEND 2       // Waiting to send to a receiver
-#define STATUS_WAIT_RECEIVE 3    // Waiting to receive from a sender
+#define STATUS_WAIT_SEND 11       // Waiting to send to a receiver
+#define STATUS_WAIT_RECEIVE 12    // Waiting to receive from a sender
