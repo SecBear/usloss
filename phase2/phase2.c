@@ -37,7 +37,7 @@ void SlotListInit(mail_box *mbox, int slots, int slot_size);
 
 int debugflag2 = 0;
 
-/* array of 2000 mail boxes */
+/* array of 2000 mail boxes: NOTE: 2500 mail slots IN TOTAL, not per mailbox*/
 mail_box MailBoxTable[MAXMBOX];
 
 /* array of mail box processes (proc table) */
@@ -45,7 +45,7 @@ mail_box MailBoxTable[MAXMBOX];
 
 int slot_count = 0; // Integer to keep track of total number of slots
 
-unsigned int next_mbox_id = 1;   // The next mbox_id to be assigned
+unsigned int next_mbox_id = 0;   // The next mbox_id to be assigned
 int numMbox = 0;                 // Number of currently active mailboxes
 
 
@@ -307,6 +307,19 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
 
 int MboxCondReceive(); // non-blocking receive
 
+/*
+MboxRelease()
+{
+   // Mark mailbox to be released as being relesased
+
+   // Reclaim the mail slots allocated for the mailbox so they can be reused
+
+   // Releaser checks if there are processes blocked on the mailbox
+      // How many processes are blocked?
+      // Unblock each process (call unblock_proc)
+      // block itself (call block_me) if there exists any process previously blocked on the mailbox that
+         hasn't returned from either sending or recieving operation
+}*/
 
 int check_io(){
     return 0; 
