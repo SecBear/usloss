@@ -8,6 +8,7 @@ typedef struct mail_slot *slot_ptr;             // Mail slot
 typedef struct slot_list *slot_list;            // Linked list of slots for a mailbox
 typedef struct waiting_proc *waiting_proc_ptr;  // Waiting process
 typedef struct waiting_list *waiting_list;      // Linked list of waiting processes for a mailbox
+typedef struct waiting_proc waiting_proc;
 
 
 struct mailbox {                       // A mailbox

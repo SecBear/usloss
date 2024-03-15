@@ -574,7 +574,7 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
    }
 
    // Allocate space for new waiting process
-   waiting_proc_ptr waiting_process = (waiting_proc_ptr)malloc(sizeof(waiting_proc_ptr)); // Allocate memory for the slot
+   waiting_proc_ptr waiting_process = (waiting_proc_ptr)malloc(sizeof(waiting_proc)); // Allocate memory for the slot
 
    // Assign process information
    waiting_process->process = &ProcTable[pid];
