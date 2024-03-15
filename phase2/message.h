@@ -34,6 +34,8 @@ struct mail_slot {                     // A slot in the mailbox (doubly linked)
 struct slot_list {                     // Linked list of slots for a mailbox
    slot_ptr head_slot;
    slot_ptr tail_slot;
+   int slot_size;
+   int slot_count;
    int mbox_id;
    int count;
 };
