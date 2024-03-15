@@ -397,14 +397,16 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       {
          if (current->process->status == STATUS_WAIT_SEND) // If this process is waiting to send
          {
-            // Unblock the waiting process and receive the sender's message directly
-            unblock_proc(current->process->pid); // Unblock already waiting process
-            popWaitList(current->mbox_id);       // remove process from waiting list
+            popWaitList(mbox_id);       // remove process from waiting list
+
             // Get the message from the sender directly
             memcpy(msg_ptr, current->process->message, msg_size); // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
 
             // Clean the buffer
             memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
+
+            // unblock the waiting process
+            unblock_proc(current->process->pid); // Unblock already waiting process
 
             // Enable/Disable interrupts?
 
@@ -615,6 +617,8 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
 // Pops the head process from the waiting list and returns the waiting_proc_ptr
 int popWaitList(int mbox_id)
 {
+   check_kernel_mode("popWaitList\n");
+
    // Get waiting list
    waiting_list list = MailBoxTable[mbox_id].waiting_list;
 
