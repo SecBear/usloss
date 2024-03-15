@@ -61,6 +61,7 @@ int numSlot = 0;                 // Number of currently active slots
 int clock_count = 0;             // Count to keep track of clock_handler calls
 
 // Interrupt Mailboxes
+int clock_mbox;
 int disk_mbox[2];
 int term_mbox[4];
 // int clock_mbox[];
@@ -141,6 +142,8 @@ int start1(char *arg)
    int_vec[DISK_DEV] = disk_handler;         // disk handler
    int_vec[TERM_DEV] = term_handler;         // terminal handler
    int_vec[SYSCALL_INT] = syscall_handler;   // System call handler
+
+   clock_mbox = MboxCreate(0, 0);         // clock mailbox
 
    for (int i = 0; i < 2; i++)            // disk mailboxes
    {
@@ -815,3 +818,42 @@ static void nullsys(sysargs *args)
    printf("nullsys(); Invalid syscall %d. Halting...\n", args->number);
    halt(1);
 }/* nullsys */
+
+// Waitdevice
+int waitdevice(int type, int unit, int *status)
+{
+   int result = 0;
+
+   // Sanity checks
+      // More code could be inserted before the below checking
+   switch (type)
+   {
+      case CLOCK_DEV:
+      // More code for communication with clock device
+      result = MboxReceive(clock_mbox, status, sizeof(int)); 
+      break;
+
+      case DISK_DEV:
+      result = MboxReceive(disk_mbox[unit], status, sizeof(int));
+      break;
+
+      case TERM_DEV:
+      // More logic
+      result = MboxReceive(term_mbox[unit], status, sizeof(int));
+      break;
+
+      default:
+      printf("waitdevice(): bad type (%d). Halting...\n", type);
+      halt(1);
+   }
+
+   if (result == -3)
+   {
+      // we're zapped
+      return -1;
+   }
+   else
+   {
+      return 0;
+   }
+} /* Waitdevice */
