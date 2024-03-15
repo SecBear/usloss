@@ -221,7 +221,7 @@ int MboxCreate(int slots, int slot_size)
    // Check kernel mode?
 
    // Check for simple errors
-   if (slots < 0 || slot_size < 1 || slots + slot_count > MAXSLOTS) // If we're trying to create too many slots
+   if (slots < 0 || slot_size < 0 || slots + slot_count > MAXSLOTS) // If we're trying to create too many slots
    {
       return -1;
    }
