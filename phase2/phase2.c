@@ -459,6 +459,7 @@ int check_io(){
    // Check clock mailbox 
    if (MailBoxTable[clock_mbox].waiting_list->count > 0) // Someone waiting on clock mailbox
    {
+      // Check if we're waiting on a receive - I/O mailboxes don't wait to send
       return 1;   
    }
 
@@ -466,7 +467,7 @@ int check_io(){
    for (int i = 0; i < 2; i++)   
    {
       if (MailBoxTable[disk_mbox[i]].waiting_list->count > 0)  // Someone waiting on disk mailbox
-      {
+      {  // Check if we're waiting on a receive - I/O mailboxes don't wait to send
          return 1;
       }
    } 
@@ -476,6 +477,7 @@ int check_io(){
    {
       if (MailBoxTable[term_mbox[i]].waiting_list->count > 0)  // Someone waiting on a term mailbox
       {
+         // Check if we're waiting on a receive - I/O mailboxes don't wait to send
          return 1;
       }
    } */
