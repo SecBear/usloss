@@ -59,6 +59,7 @@ int numMbox = 0;                 // Number of currently active mailboxes
 int numSlot = 0;                 // Number of currently active slots
 
 int clock_count = 0;             // Count to keep track of clock_handler calls
+int waiting_for_io = 0;          // Count to keep track of processes waiting for I/O
 
 // Interrupt Mailboxes
 int clock_mbox;
@@ -450,7 +451,11 @@ MboxRelease()
 
 int check_io(){
    // return 1 if at least one process is blocked on an I/O mailbox (including clock mbox)
-
+   if (waiting_for_io > 0)
+   {
+      return 1;
+   }
+   /* IF ABOVE DOESN'T WORK, USE WAITING LIST FOR I/O MAILBOXES?
    // Check clock mailbox 
    if (MailBoxTable[clock_mbox].waiting_list->count > 0) // Someone waiting on clock mailbox
    {
@@ -473,7 +478,7 @@ int check_io(){
       {
          return 1;
       }
-   }
+   } */
 
    // return 0 otherwise
    return 0; 
@@ -857,15 +862,18 @@ int waitdevice(int type, int unit, int *status)
    {
       case CLOCK_DEV:
       // More code for communication with clock device
+      waiting_for_io++;
       result = MboxReceive(clock_mbox, status, sizeof(int)); 
       break;
 
       case DISK_DEV:
+      waiting_for_io++;
       result = MboxReceive(disk_mbox[unit], status, sizeof(int));
       break;
 
       case TERM_DEV:
       // More logic
+      waiting_for_io++;
       result = MboxReceive(term_mbox[unit], status, sizeof(int));
       break;
 
@@ -881,6 +889,7 @@ int waitdevice(int type, int unit, int *status)
    }
    else
    {
+      waiting_for_io--;
       return 0;
    }
 } /* Waitdevice */
