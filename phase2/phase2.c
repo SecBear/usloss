@@ -524,8 +524,12 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
       waiting_process->process = &ProcTable[pid];
       waiting_process->process->pid = pid;
       waiting_process->process->status = status;
-      waiting_process->process->msg_size = msg_size;                 // Store message size for later
-      memcpy(waiting_process->process->message, msg_ptr, msg_size);  // Copy message for later
+      // if we're storing a message:
+      if (msg_size != -1)  // msg_size of -1 means no message
+      {
+         waiting_process->process->msg_size = msg_size;                 // Store message size for later
+         memcpy(waiting_process->process->message, msg_ptr, msg_size);  // Copy message for later
+      }
 
       // Update new waiting process's pointers
       waiting_process->pNext = NULL;
