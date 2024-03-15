@@ -449,7 +449,34 @@ MboxRelease()
 }*/
 
 int check_io(){
-    return 0; 
+   // return 1 if at least one process is blocked on an I/O mailbox (including clock mbox)
+
+   // Check clock mailbox 
+   if (MailBoxTable[clock_mbox].waiting_list->count > 0) // Someone waiting on clock mailbox
+   {
+      return 1;   
+   }
+
+   // Check disk mailbox
+   for (int i = 0; i < 2; i++)   
+   {
+      if (MailBoxTable[disk_mbox[i]].waiting_list->count > 0)  // Someone waiting on disk mailbox
+      {
+         return 1;
+      }
+   } 
+
+   // Check term mailbox
+   for (int i = 0; i < 4; i++)
+   {
+      if (MailBoxTable[term_mbox[i]].waiting_list->count > 0)  // Someone waiting on a term mailbox
+      {
+         return 1;
+      }
+   }
+
+   // return 0 otherwise
+   return 0; 
 }
 
 // Get the next ready mailbox ID and return it
