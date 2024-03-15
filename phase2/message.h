@@ -44,6 +44,7 @@ struct mbox_proc
    int pid;
    int status;
    char message[MAX_MESSAGE];
+   int msg_size;
 };
 
 /* WAITING */

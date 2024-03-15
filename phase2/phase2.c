@@ -27,11 +27,16 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondSend();
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size);
 int MboxCondReceive();
-int AddToWaitList(int mbox_id, int status);
+int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size);
 int GetNextMboxID();
 char* GetNextReadyMsg(int mbox_id);
 void SlotListInit(mail_box *mbox, int slots, int slot_size);
 int GetNextSlotID();
+void clock_handler2();
+void disk_handler();
+void term_handler();
+void syscall_handler();
+static void nullsys();
 
 
 /* -------------------------- Globals ------------------------------------- */
@@ -53,6 +58,14 @@ unsigned int next_slot_id = 0;   // The next slot_id to be assigned
 int numMbox = 0;                 // Number of currently active mailboxes
 int numSlot = 0;                 // Number of currently active slots
 
+int clock_count = 0;             // Count to keep track of clock_handler calls
+
+// Interrupt Mailboxes
+int disk_mbox[2];
+int term_mbox[4];
+// int clock_mbox[];
+
+void(*sys_vec[MAXSYSCALLS])(sysargs *args);  // for system call handler
 
 /* -------------------------- Functions -----------------------------------
   Below I have code provided to you that calls
@@ -88,6 +101,7 @@ int start1(char *arg)
    disableInterrupts();
 
    /* Initialize the mail box table, slots, & other data structures. */
+
    // Mail box table
    for (int i = 0; i < MAXMBOX; i++)
    {
@@ -105,7 +119,7 @@ int start1(char *arg)
       MailSlotTable[i].mbox_id = STATUS_UNUSED;
       MailSlotTable[i].slot_id = STATUS_UNUSED;
       MailSlotTable[i].status = STATUS_EMPTY;
-      MailSlotTable[i].message[MAX_MESSAGE] = NULL;
+      MailSlotTable[i].message[MAX_MESSAGE] = "\0";
       MailSlotTable[i].next_slot = NULL;
       MailSlotTable[i].prev_slot = NULL;
    }
@@ -116,12 +130,32 @@ int start1(char *arg)
       // PID, status, Message
       ProcTable[i].status = STATUS_EMPTY;
       ProcTable[i].pid = STATUS_UNUSED;
-      ProcTable[i].message[MAX_MESSAGE] = NULL;
+      ProcTable[i].message[MAX_MESSAGE] = "\0";
    }
 
 
    /* Initialize int_vec and sys_vec, allocate mailboxes for interrupt
     * handlers.  Etc... */
+
+   int_vec[CLOCK_DEV] = clock_handler2;      // clock handler
+   int_vec[DISK_DEV] = disk_handler;         // disk handler
+   int_vec[TERM_DEV] = term_handler;         // terminal handler
+   int_vec[SYSCALL_INT] = syscall_handler;   // System call handler
+
+   for (int i = 0; i < 2; i++)            // disk mailboxes
+   {
+      disk_mbox[i] = MboxCreate(0, 0);    // I/O mailboxes for disks
+   }
+
+   for (int i = 0; i < 4; i++)            // Term mailboxes
+   {
+      term_mbox[i] = MboxCreate(0,0);     // I/O mailboxes for terminals
+   }
+
+   for (int i = 0; i < MAXSYSCALLS; i++)
+   {
+      sys_vec[i] = nullsys;               // initialize every system call handler as nullsys
+   }
 
    enableInterrupts();
 
@@ -275,7 +309,8 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
       // Iterate throught the slot list to find an available slot
       if (current->status == STATUS_EMPTY)   // If this slot is empty:
       {
-         available_slot = current;           // Assign this slot to current
+         available_slot = current;              // Assign this slot to current
+         available_slot->status = STATUS_USED;  // Set this slot to used
          break;
       }
       current = current->next_slot;          // Else, check next slot
@@ -283,20 +318,20 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    if (available_slot == NULL)   // If no available slot was found,
    {
       // block the sender, add sender to waiting list
-      AddToWaitList(mbox_id, STATUS_WAIT_SEND); // Add this process to waiting list, waiting to send
+      AddToWaitList(mbox_id, STATUS_WAIT_SEND, msg_ptr, msg_size); // Add this process to waiting list, waiting to send
       block_me(STATUS_WAIT_SEND); // Sender is waiting to send
+      return 0;
    }
 
    // Else, there is an available slot
    // Copy the message into the next empty mail slot
-   memcpy(available_slot->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
+   else if (available_slot != NULL)
+   {
+      memcpy(available_slot->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminated
 
-   // Increment the mailbox's available_messages
-   mbox->available_messages++;
-
-   // Update slot status and any waiting processes 
-   available_slot->status == STATUS_USED;
-
+      // Increment the mailbox's available_messages
+      mbox->available_messages++;
+   }
    return 0;
 } /* MboxSend */
 
@@ -328,7 +363,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // block until message is here (using semaphores)
    if (mbox->available_messages <= 0) // If no messages in this mailbox,
    {
-      AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE);          // Add to Waiting list of processes to recieve a message?
+      AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE, NULL, -1);          // Add to Waiting list of processes to recieve a message?
       block_me(STATUS_WAIT_RECEIVE);   // Block with status waiting to receive
    }
 
@@ -351,12 +386,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
          {
             // Unblock the waiting process and receive the sender's message directly
             unblock_proc(current->process->pid);   // Unblock already waiting process
+            popWaitList(current->mbox_id);         // remove process from waiting list
             // Get the message from the sender directly
             memcpy(msg_ptr, current->process->message, msg_size);      // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
 
-            // Clean the slot
+            // Clean the buffer
             memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
-            mbox->available_messages--;       // Decrement the mailbox's available_messages
 
             // Enable/Disable interrupts?
 
@@ -376,7 +411,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    memcpy(msg_ptr, message, msg_size);      // Copy the message including null terminator
 
    // Clean the slot
-   memset(message, 0, MAX_MESSAGE); // Zero out the message buffer
+   memset(message, 0, MAX_MESSAGE);    // Zero out the message buffer
    mbox->available_messages--;       // Decrement the mailbox's available_messages
 
    // disable/enable interrupts?
@@ -456,8 +491,8 @@ int GetNextSlotID()
 
 // AddToList functions to add an item to the end of a linked list
 
-// Add the current process to a mailbox's list of watiing processes
-int AddToWaitList(int mbox_id, int status)
+// Add the current process to a mailbox's list of watiing processes along with its message if it's waiting to send
+int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
 {
    mail_box mbox = MailBoxTable[mbox_id]; // Get mailbox
    int pid = getpid();  // Get process id - not sure how to access processes yet
@@ -489,6 +524,8 @@ int AddToWaitList(int mbox_id, int status)
       waiting_process->process = &ProcTable[pid];
       waiting_process->process->pid = pid;
       waiting_process->process->status = status;
+      waiting_process->process->msg_size = msg_size;                 // Store message size for later
+      memcpy(waiting_process->process->message, msg_ptr, msg_size);  // Copy message for later
 
       // Update new waiting process's pointers
       waiting_process->pNext = NULL;
@@ -573,10 +610,11 @@ char* GetNextReadyMsg(int mbox_id)
    while (current != NULL)
    {
       // Iterate through each slot and check if there's an available message
-      if (current->message != NULL)
+      if (current->message[0] != '\0')
       {
-         // if there is, return it
-         return current->message;                              // return the message
+         // if there is, set slot status to empty and return it
+         current->status = STATUS_EMPTY;  // slot will be cleaned outside this 
+         return current->message;         // return the message
       }
       current = current->next_slot; // If not, on to the next slot
    }
@@ -584,6 +622,7 @@ char* GetNextReadyMsg(int mbox_id)
    printf("ERROR: GetNextReadyMsg: no slot available?? please investigate\n");
    halt(1);
 }
+
 
 /* LIST INITIALIZATION FUNCTIONS */
 
@@ -659,3 +698,106 @@ void WaitingListInit(mail_box *mbox)
    mbox->waiting_list->count = 0;
    mbox->waiting_list->mbox_id = mbox_id;
 }
+
+
+/* HANDLER FUNCTIONS */
+
+// Clock handler
+void clock_handler2(int dev, void *pUnit)
+{
+   check_kernel_mode("clock handler\n");
+   // Clock interrupt has occurred
+
+   // Error check: is the device the correct device? Is the unit number in the correct range?
+
+   clock_count++;          // Increment clock count
+
+   if (clock_count == 5)   // If this is the 5th interrupt,
+   {
+      clock_count = 0;  // Reset clock count
+      //MBoxCondSend();   // Conditionally send to the clock I/O mailbox
+   }
+
+   // time slice (check if time is up, if so, make ready and dispatch)
+   time_slice();
+}
+
+// Disk handler
+void disk_handler(int dev, void *punit)
+{  
+   int status;
+   int result;
+   int unit = (int)punit;
+
+   check_kernel_mode("disk handler\n");
+
+   // Error checks is the device the correct device? Is the unit number in the correct range?
+   if (unit < 0 || unit > 1)
+   {
+      halt(1);
+   }
+
+   // Read the device status register by using the USLOSS device_input function. You need to call this function
+   device_input(DISK_DEV, unit, &status); 
+
+   // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
+      // Cond-send is used so that low-level device handler is never blocked on the mailbox
+   //MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
+   // should do some checking on the returned result value
+}
+
+// Terminal handler
+void term_handler(int dev, void *punit)
+{
+   int status;
+   int result;
+   int unit = (int)punit;
+
+   check_kernel_mode("terminal handler\n");
+
+   // Error checks is the device the correct device? Is the unit number in the correct range?
+   if (unit < 0 || unit > 3)
+   {
+      halt(1);
+   }
+
+   // Read the device status register by using the USLOSS device_input function. You need to call this function
+   device_input(TERM_DEV, unit, &status); 
+
+   // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
+      // Cond-send is used so that low-level device handler is never blocked on the mailbox
+   //MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
+   // should do some checking on the returned result value
+}
+
+// Syscall Handler
+void syscall_handler(int dev, void *punit)
+{
+   check_kernel_mode("syscall handler\n"); 
+
+   int unit = (int)punit;
+
+   sysargs *sys_ptr;
+   sys_ptr = (sysargs *) unit;
+
+   // Sanity check: if the interrupt is not SYSCALL_INT, halt(1)
+   if (dev != SYSCALL_INT)
+   {
+      halt(1);
+   }
+   // check what system - if the call is not in the range between 0 and MAXSYSCALLS, halt(1)
+   if (unit < 0 || unit > MAXSYSCALLS)
+   {
+      halt(1);
+   }
+
+   // now it is time to call the appropriate system call handler
+   sys_vec[sys_ptr->number](sys_ptr);
+}
+
+// nullsys for system call handler
+static void nullsys(sysargs *args)
+{
+   printf("nullsys(); Invalid syscall %d. Halting...\n", args->number);
+   halt(1);
+}/* nullsys */
