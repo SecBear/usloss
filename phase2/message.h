@@ -84,6 +84,7 @@ union psr_values {
 // Process table? (use getnextpid() % MAXPROC to get new pids for new proc table)
 
 /* CONSTANTS */
+#define STATUS_RELEASED -2
 #define STATUS_UNUSED -1
 #define STATUS_EMPTY 0
 #define STATUS_USED 1

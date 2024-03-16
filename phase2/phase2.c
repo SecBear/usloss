@@ -390,7 +390,11 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
       return -1;
    }
 
-   // Get the mailbox from the mail box table
+   // Get the mailbox from the mail box table if it exists
+   if (MailBoxTable[mbox_id].status == STATUS_RELEASED)
+   {
+      return -1;  // Mailbox was released
+   }
    mail_box *mbox = &MailBoxTable[mbox_id];
 
    // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
@@ -751,7 +755,7 @@ MboxRelease(int mbox_id)
 
    /* OTHER VALUES */
    mbox->mbox_id = STATUS_UNUSED;
-   mbox->status = STATUS_EMPTY;
+   mbox->status = STATUS_RELEASED;
    mbox->available_messages = STATUS_EMPTY;
    mbox->zero_slot = STATUS_UNUSED;
 
