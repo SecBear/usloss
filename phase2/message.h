@@ -48,6 +48,7 @@ struct mbox_proc
    int status;
    char message[MAX_MESSAGE];
    int msg_size;
+   int delivered;  // has message delivered yet?
 };
 
 /* WAITING */
@@ -88,3 +89,4 @@ union psr_values {
 #define STATUS_USED 1
 #define STATUS_WAIT_SEND 11       // Waiting to send to a receiver
 #define STATUS_WAIT_RECEIVE 12    // Waiting to receive from a sender
+#define STATUS_WAIT_RELEASE 13    // Waiting on another blocked process to get back from a send or receive

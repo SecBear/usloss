@@ -24,9 +24,9 @@ void disableInterrupts();
 static void enableInterrupts();
 int MboxCreate(int slots, int slot_size);
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size);
-int MboxCondSend();
+int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size);
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size);
-int MboxCondReceive();
+int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size);
 int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size);
 int GetNextMboxID();
 slot_ptr GetNextReadySlot(int mbox_id);
@@ -272,6 +272,113 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
+   {
+      // Error message here
+      return -1;
+   }
+
+   // Get the mailbox from the mail box table
+   mail_box *mbox = &MailBoxTable[mbox_id];
+
+   // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
+   // if so, we need to copy that data into the mailbox and unblock the process that's waiting
+   if (mbox->waiting_list->count > 0) // Is anyone waiting on this mailbox?
+   {
+      waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+      while (current != NULL)                               // Loop through Waiting list
+      {
+         if (current->process->status == STATUS_WAIT_RECEIVE) // If this process is waiting to recieve
+         {
+            // If this is a zero slot mailbox, send process directly
+            if (mbox->zero_slot)
+            {
+               memcpy(current->process->message, msg_ptr, msg_size); // Copy the message into the process buffer
+               current->process->delivered = 1;                      // Signal that there is a message here
+               return 1;
+            }
+            // Do something
+            // else, send the message to next available mailbox and unblock proc
+            pid = current->process->pid;
+            // Remove process from waiting list
+            popWaitList(mbox_id);
+            // set the flag to unblock proc once message sent
+            needToUnblock = 1;
+            // only if zero slot mailbox Direct send to the receiver who's waiting
+            // memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminate
+            // return 1; // success!
+         }
+         current = current->pNext; // Check the next wating process
+      }
+   } // Else, nobody is waiting
+
+   // If we're zero slot, we won't search for a slot
+   if (mbox->zero_slot == 0)
+   {
+      // Else, If slot is available in this mailbox, allocate a slot from your mail slot table and send it
+      if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
+      {  
+         // Get next slot id and assign this slot to the table
+         int slot_id = GetNextSlotID();
+         slot_ptr new_slot = &MailSlotTable[slot_id];
+         // Initialize other fields
+         new_slot->mbox_id = mbox->mbox_id;
+         new_slot->status = STATUS_USED;
+
+         // Copy the message into the slot
+         memcpy(new_slot->message, msg_ptr, msg_size);
+
+         // Link the new slot to the mailbox's linked list of slots
+         new_slot->next_slot = NULL;                       // New slot's pNext is NULL
+         new_slot->prev_slot = mbox->slot_list->tail_slot; // Old tail is new slot's pPrev
+         if (mbox->slot_list->head_slot == NULL)
+         {                                         // If the list's head is NULL,
+            mbox->slot_list->head_slot = new_slot; // New slot is the new head
+         }
+         else
+         {                                                    // Otherwise,
+            mbox->slot_list->tail_slot->next_slot = new_slot; // New slot is the tail's pNext
+         }
+         mbox->slot_list->tail_slot = new_slot; // New slot is now the tail
+         mbox->slot_list->count++;              // Increment the slot list count
+         numSlot++;                             // increment global list of slots
+
+         // Increment the mailbox's available_messages
+         mbox->available_messages++;
+
+         // remember to deallocate on receive
+
+         if (needToUnblock)
+         {
+            unblock_proc(pid);
+         }
+
+         return 0;
+      }
+   }
+
+   // check if we need to unblock a process
+   if (needToUnblock)
+   {
+      unblock_proc(pid);
+   }
+   // No available slot,
+   // block the sender, add sender to waiting list
+   AddToWaitList(mbox_id, STATUS_WAIT_SEND, msg_ptr, msg_size); // Add this process to waiting list, waiting to send
+   block_me(STATUS_WAIT_SEND);                                  // Sender is waiting to send
+
+   return 0;
+
+} /* MboxSend */
+
+int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
+{
+   int needToUnblock = 0;
+   int pid = -1;
+
+   check_kernel_mode("MboxSend\n");
+
+   // First, check for basic errors
    if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
    {
       // Error message here
@@ -348,15 +455,9 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    }
 
    // No available slot was found,
-   // block the sender, add sender to waiting list
-   AddToWaitList(mbox_id, STATUS_WAIT_SEND, msg_ptr, msg_size); // Add this process to waiting list, waiting to send
-   block_me(STATUS_WAIT_SEND);                                  // Sender is waiting to send
-
-   return 0;
-
-} /* MboxSend */
-
-int MboxCondSend(); // non-blocking send
+   // return -2
+   return -2;
+} 
 
 /* ------------------------------------------------------------------------
    Name - MboxReceive
@@ -372,7 +473,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    int zero_slot = 0;
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
    {
       // Error message here
       return -1;
@@ -382,12 +483,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    mail_box *mbox = &MailBoxTable[mbox_id];
 
    // Is this a zero slot?
-   if (mbox->zero_slot)
+   /*if (mbox->zero_slot)
    {
       // do something
       printf("we're a zero slot! - do something with me!!! - returning 0\n");
       return 0;
-   }
+   } */
 
    // is somebody waiting to send? (receieve from them directly)
    if (mbox->waiting_list->count > 0)
@@ -402,6 +503,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
 
             // Get the message from the sender directly
             memcpy(msg_ptr, current->process->message, msg_size); // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
+            current->process->delivered = 1;                      // Set the process's message delivered flag
 
             // Clean the buffer
             memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
@@ -417,6 +519,30 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       }
       current = current->pNext; // Check the next wating process
    }
+   // This process is the one to receive, 
+
+   // if we're a zero slot, get message from wait list
+   if (mbox->zero_slot)
+   {
+      while(1) // THIS DOESN"T WORK
+      {
+         // find the message
+         waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
+         while (current_proc != NULL)
+         {
+            if (current_proc->process->delivered)
+            {
+               popWaitList(mbox_id);   // remove process from waiting list
+               memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
+               return 1;
+            }
+            current_proc = current_proc->pNext; // keep looking
+         }
+         // if no message available, block and repeat loop
+         AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE, NULL, -1);
+         block_me;
+      }
+   }
 
    // block until message is here (using semaphores)
    if (mbox->available_messages <= 0) // If no messages in this mailbox,
@@ -425,7 +551,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);                         // Block with status waiting to receive
    }
 
-   // This process is the one to receive
+   // Message is here
    // Grab the next available slot, get it's message and clean the mailbox slot
    slot_ptr slot = GetNextReadySlot(mbox_id); // Get the next slot with a message
    char *message = slot->message;            // Pull its message
@@ -441,8 +567,80 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    return 1; // success
 } /* MboxReceive */
 
-int MboxCondReceive(); // non-blocking receive
+int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size) // non-blocking receive
+{
+   int zero_slot = 0;
 
+   // First, check for basic errors
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   {
+      // Error message here
+      return -1;
+   }
+
+   // Get the mailbox
+   mail_box *mbox = &MailBoxTable[mbox_id];
+
+   // Is this a zero slot?
+   /*if (mbox->zero_slot)
+   {
+      // do something
+      printf("we're a zero slot! - do something with me!!! - returning 0\n");
+      return 0;
+   }*/
+
+   // is somebody waiting to send? (receieve from them directly)
+   if (mbox->waiting_list->count > 0)
+   {
+      // Find the process already waiting, see if they're waiting to send
+      waiting_proc_ptr current = mbox->waiting_list->pHead; // Start with the head of the waiting list
+      while (current != NULL)                               // Loop through Waiting list
+      {
+         if (current->process->status == STATUS_WAIT_SEND) // If this process is waiting to send
+         {
+            popWaitList(mbox_id);       // remove process from waiting list
+
+            // Get the message from the sender directly
+            memcpy(msg_ptr, current->process->message, msg_size); // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
+            current->process->delivered = 1;                      // Set the process's message delivered flag
+
+            // Clean the buffer
+            memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
+
+            // unblock the waiting process
+            unblock_proc(current->process->pid); // Unblock already waiting process
+
+            // Enable/Disable interrupts?
+
+            // Return 1 (success)
+            return 1;
+         }
+      }
+      current = current->pNext; // Check the next wating process
+   }
+   // This process is the one to receive, 
+
+   // If there are no available messages, return -2
+   if (mbox->available_messages <= 0) // If no messages in this mailbox,
+   {
+      return -2;  // mailbox empty, no message to receive  
+   }
+
+   // Message is here
+   // Grab the next available slot, get it's message and clean the mailbox slot
+   slot_ptr slot = GetNextReadySlot(mbox_id); // Get the next slot with a message
+   char *message = slot->message;            // Pull its message
+
+   // Put the message from the mailbox slot into the receiver's buffer
+   memcpy(msg_ptr, message, msg_size); // Copy the message including null terminator
+
+   // Clean / Deallocate the slot
+   CleanSlot(slot, mbox);
+
+   // disable/enable interrupts?
+
+   return 1; // success
+}
 
 MboxRelease(int mbox_id)
 {  
@@ -494,7 +692,7 @@ MboxRelease(int mbox_id)
    }
 
    // block itself (call block_me) if there exists any process previously blocked on the mailbox that
-      //hasn't returned from either sending or recieving operation
+      //hasn't returned from either sending or recieving operation -- I don't understand this portion
 
    /* OTHER VALUES */
    mbox->mbox_id = STATUS_UNUSED;
@@ -634,11 +832,13 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
    waiting_process->process = &ProcTable[pid];
    waiting_process->process->pid = pid;
    waiting_process->process->status = status;
+   waiting_process->process->delivered = -1;
    // if we're storing a message:
    if (msg_size != -1) // msg_size of -1 means no message
    {
       waiting_process->process->msg_size = msg_size;                // Store message size for later
       memcpy(waiting_process->process->message, msg_ptr, msg_size); // Copy message for later
+      waiting_process->process->delivered = 0;                      // Flag for message delivered
    }
 
    // Update new waiting process's pointers
@@ -834,7 +1034,7 @@ void clock_handler2(int dev, void *pUnit)
    if (clock_count == 5) // If this is the 5th interrupt,
    {
       clock_count = 0; // Reset clock count
-      // MBoxCondSend();   // Conditionally send to the clock I/O mailbox
+      MboxCondSend(clock_mbox, NULL, NULL);   // Conditionally send to the clock I/O mailbox - NULL NULL?
    }
 
    // time slice (check if time is up, if so, make ready and dispatch)
@@ -1045,7 +1245,7 @@ void CleanWaitingProc(waiting_proc_ptr waiting_proc, mail_box *mbox)
    //free(waiting_proc->process);
 
    // Free the memory allocated for the waiting process entry
-   free(waiting_proc);
+   free(&waiting_proc);
 
    // Optionally decrement any other counters or perform additional cleanup
    numWaitingProc--;   
