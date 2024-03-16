@@ -56,6 +56,7 @@ unsigned int next_mbox_id = 0; // The next mbox_id to be assigned
 unsigned int next_slot_id = 0; // The next slot_id to be assigned
 int numMbox = 0;               // Number of currently active mailboxes
 int numSlot = 0;               // Number of currently active slots
+int numWaitingProc = 0;        // Number of waiting processes
 
 int clock_count = 0;    // Count to keep track of clock_handler calls
 int waiting_for_io = 0; // Count to keep track of processes waiting for I/O
@@ -433,7 +434,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    memcpy(msg_ptr, message, msg_size); // Copy the message including null terminator
 
    // Clean / Deallocate the slot
-   void CleanSlot(slot, mbox);
+   CleanSlot(slot, mbox);
 
    // disable/enable interrupts?
 
@@ -442,19 +443,72 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
 
 int MboxCondReceive(); // non-blocking receive
 
-/*
-MboxRelease()
-{
-   // Mark mailbox to be released as being relesased
 
+MboxRelease(int mbox_id)
+{  
+   mail_box *mbox = &MailBoxTable[mbox_id];
+
+   if (mbox->status != STATUS_USED)
+   {
+      return -1;
+   }
+
+   /* SLOT LIST */
    // Reclaim the mail slots allocated for the mailbox so they can be reused
+   slot_ptr current_slot = mbox->slot_list->head_slot;
+   while (current_slot != NULL) 
+   {
+      // Store the next slot pointer before freeing the current slot
+      slot_ptr next_slot = current_slot->next_slot;
 
+      // Clean up the slot
+      CleanSlot(current_slot, mbox);
+
+      // Move to the next slot
+      current_slot = next_slot;
+   }
+   free(mbox->slot_list);  // Free the slot list
+   mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
+
+   /* WAITING LIST */
    // Releaser checks if there are processes blocked on the mailbox
-      // How many processes are blocked?
-      // Unblock each process (call unblock_proc)
-      // block itself (call block_me) if there exists any process previously blocked on the mailbox that
-         hasn't returned from either sending or recieving operation
-}*/
+   // How many processes are blocked?
+   if (mbox->waiting_list->count > 0)  // There are blocked processes
+   {
+      // Traverse through and unblock_proc(pid) each one
+      waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
+      while (current_proc != NULL)
+      {
+         // Store the next waiting process before freeing current waiting process
+         waiting_proc_ptr next_proc = current_proc->pNext;
+
+         // Clean up the waiting process
+         CleanWaitingProc(current_proc, mbox);
+
+         unblock_proc(current_proc->process->pid); // Unblock the process
+
+         current_proc = next_proc;
+      }
+      free(mbox->waiting_list);  // Free the waiting list
+      mbox->waiting_list = NULL; // Set the waiting_list pointer to NULL to indicate it's cleaned up
+   }
+
+   // block itself (call block_me) if there exists any process previously blocked on the mailbox that
+      //hasn't returned from either sending or recieving operation
+
+   /* OTHER VALUES */
+   mbox->mbox_id = STATUS_UNUSED;
+   mbox->status = STATUS_EMPTY;
+   mbox->available_messages = STATUS_EMPTY;
+   mbox->zero_slot = STATUS_UNUSED;
+
+   if (is_zapped)
+   {
+      return -3;
+   }
+
+   return 0;
+}
 
 int check_io()
 {
@@ -608,6 +662,9 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
 
    // Increment the list count
    list->count++;
+
+   // Increment number of waiting processes
+   numWaitingProc++;
 
    return 1;
 }
@@ -947,4 +1004,49 @@ void CleanSlot(slot_ptr slot, mail_box *mbox)
 
    // Decrement global number of slots 
    numSlot--;
+}
+
+void CleanWaitingProc(waiting_proc_ptr waiting_proc, mail_box *mbox)
+{
+   // Clean the waiting process's message buffer
+   memset(waiting_proc->process->message, 0, MAX_MESSAGE);
+
+   // Set the waiting process's status to empty / unused
+   waiting_proc->process->status = STATUS_UNUSED;
+
+   // Decrement the count of waiting processes in the mailbox's waiting list
+   mbox->waiting_list->count--;
+
+   // Fix the mailbox's waiting list pointers if necessary
+   // You may need to adjust pHead and pTail pointers if the waiting process being deallocated was the head or tail of the list
+   if (waiting_proc == mbox->waiting_list->pHead)
+   {                                                // if waiting process was the head,
+      mbox->waiting_list->pHead = waiting_proc->pNext; // new head is waiting process's next
+   }
+   if (waiting_proc == mbox->waiting_list->pTail)
+   {                                                // if waiting process was the tail,
+      mbox->waiting_list->pTail = waiting_proc->pPrev; // new tail is the waiting process's prev
+   }
+   if (waiting_proc->pPrev != NULL)
+   {                                                // if waiting process had a prev,
+      waiting_proc->pPrev->pNext = waiting_proc->pNext; // prev's next is waiting process's next
+   }
+   if (waiting_proc->pNext != NULL)
+   {                                                // if waiting process had a next,
+      waiting_proc->pNext->pPrev = waiting_proc->pPrev; // next's prev is waiting process's prev
+   }
+
+   // clean the next / prev
+   waiting_proc->pNext = NULL;
+   waiting_proc->pPrev = NULL;
+   waiting_proc->mbox_id = NULL;
+
+   // Release the mbox_proc structure within the waiting_proc
+   //free(waiting_proc->process);
+
+   // Free the memory allocated for the waiting process entry
+   free(waiting_proc);
+
+   // Optionally decrement any other counters or perform additional cleanup
+   numWaitingProc--;   
 }
