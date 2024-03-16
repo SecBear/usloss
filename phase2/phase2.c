@@ -298,7 +298,12 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
                {
                   memcpy(current->process->message, msg_ptr, msg_size);
                }
-               //current->process->delivered = 1;                      // Signal that there is a message here
+               pid = current->process->pid;
+               // Remove process from waiting list
+               popWaitList(mbox_id);
+               // set the flag to unblock proc once message sent
+               unblock_proc(pid);
+               return 1; 
             }
             // Do something
             // else, send the message to next available mailbox and unblock proc
@@ -306,11 +311,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
             // Remove process from waiting list
             popWaitList(mbox_id);
             // set the flag to unblock proc once message sent
-            unblock_proc(pid);
-            return 1;
-            // only if zero slot mailbox Direct send to the receiver who's waiting
-            // memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminate
-            // return 1; // success!
+            needToUnblock = 1;
          }
          current = current->pNext; // Check the next wating process
       }
@@ -1282,7 +1283,7 @@ void CleanWaitingProc(waiting_proc_ptr waiting_proc, mail_box *mbox)
    //free(waiting_proc->process);
 
    // Free the memory allocated for the waiting process entry
-   free(&waiting_proc);
+   //free(&waiting_proc);
 
    // Optionally decrement any other counters or perform additional cleanup
    numWaitingProc--;   
