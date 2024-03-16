@@ -293,9 +293,12 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
             // If this is a zero slot mailbox, send process directly (trying to just add to wait)
             if (mbox->zero_slot)
             {
-               memcpy(current->process->message, msg_ptr, msg_size); // Copy the message into the process buffer
-               current->process->delivered = 1;                      // Signal that there is a message here
-               return 1;
+               // If there is a message to send
+               if (current->process->message[0] != '\0')// if we're dealing with a message,
+               {
+                  memcpy(current->process->message, msg_ptr, msg_size);
+               }
+               //current->process->delivered = 1;                      // Signal that there is a message here
             }
             // Do something
             // else, send the message to next available mailbox and unblock proc
@@ -303,7 +306,8 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
             // Remove process from waiting list
             popWaitList(mbox_id);
             // set the flag to unblock proc once message sent
-            needToUnblock = 1;
+            unblock_proc(pid);
+            return 1;
             // only if zero slot mailbox Direct send to the receiver who's waiting
             // memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminate
             // return 1; // success!
@@ -464,7 +468,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
       }
    }
 
-   // check if we need to unblock a process
+   // check if we need to unblock a process - Add logic for when we're being called from check_io / clock handler
    if (needToUnblock)
    {
       unblock_proc(pid);
@@ -555,8 +559,9 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       }
       // if no message available, block
       AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE, NULL, -1);
-      //waiting_for_io++;
+      waiting_for_io++;
       block_me(STATUS_WAIT_RECEIVE);
+      waiting_for_io--;
 
       // messsage should be delivered now 
 
