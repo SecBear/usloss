@@ -294,14 +294,16 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
             if (mbox->zero_slot)
             {
                // If there is a message to send
-               if (current->process->message[0] != '\0')// if we're dealing with a message,
+               // Get message from msg ptr
+               if (*(char*)msg_ptr != '\0')// if we're dealing with a message,
                {
                   memcpy(current->process->message, msg_ptr, msg_size);
                }
                pid = current->process->pid;
-               // Remove process from waiting list
-               popWaitList(mbox_id);
+               // Remove process from waiting list - try keeping process on wait list to grab message 
+               // popWaitList(mbox_id);
                // set the flag to unblock proc once message sent
+               current->process->delivered = 1;
                unblock_proc(pid);
                return 1; 
             }
@@ -575,21 +577,21 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);
       waiting_for_io--;
 
-      // messsage should be delivered now 
-      if (current_proc != NULL)
-      {
-         current_proc = mbox->waiting_list->pHead;
-      }
+      // messsage should be delivered now
+      //popWaitList(mbox_id);
+
+      current_proc = mbox->waiting_list->pHead; 
       while (current_proc != NULL)
       {
-         if (current_proc->process->delivered)
+         if (current_proc->process->delivered == 1)
          {
             popWaitList(mbox_id);   // remove process from waiting list
             memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
             return 1;
          }
          current_proc = current_proc->pNext; // keep looking
-         }
+      }
+      popWaitList(mbox_id);
       // if no message available still, we're synchronizing 
       return 1;
    }
