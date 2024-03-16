@@ -605,6 +605,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);                         // Block with status waiting to receive
    }
 
+   // Check if mailbox has been released or is releasing
+   if (mbox->status == STATUS_RELEASED)
+   {
+      return -1;
+   }
+
    // Message is here
    // Grab the next available slot, get it's message and clean the mailbox slot
    slot_ptr slot = GetNextReadySlot(mbox_id); // Get the next slot with a message
@@ -705,6 +711,8 @@ MboxRelease(int mbox_id)
    {
       return -1;
    }
+
+   mbox->status = STATUS_RELEASED; // Set status to released in case of interrutps - may need to set this to STATUS_RELEASING
 
    /* SLOT LIST */
    // Only if we're a zero slot mailbox
