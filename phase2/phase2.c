@@ -427,6 +427,12 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
    // If we're zero slot, we won't search for a slot
    if (mbox->zero_slot == 0)
    {
+      // If we're going to exceed total system number of slots, return -2
+      if (numSlot + mbox->slot_list->count >= MAXSLOTS)
+      {
+         return -2;
+      }
+
       // If slot is available in this mailbox, allocate a slot from your mail slot table and send it
       if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
       {  
@@ -1099,7 +1105,7 @@ void disk_handler(int dev, void *punit)
 
    // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
    // Cond-send is used so that low-level device handler is never blocked on the mailbox
-   // MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
+   MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
    //  should do some checking on the returned result value
 }
 
@@ -1123,7 +1129,7 @@ void term_handler(int dev, void *punit)
 
    // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
    // Cond-send is used so that low-level device handler is never blocked on the mailbox
-   // MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
+   MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
    //  should do some checking on the returned result value
 }
 
