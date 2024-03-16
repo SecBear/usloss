@@ -578,6 +578,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);
       waiting_for_io--;
 
+      // check if mailbox has been released
+      if (mbox->status == STATUS_RELEASED)
+      {
+         return -1;
+      }
+
       // messsage should be delivered now
       //popWaitList(mbox_id);
 
@@ -744,6 +750,8 @@ MboxRelease(int mbox_id)
       waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
       while (current_proc != NULL)
       {
+         while (mbox->waiting_list->count != 0)
+      {
          // Store the next waiting process before freeing current waiting process
          waiting_proc_ptr next_proc = current_proc->pNext;
 
@@ -756,6 +764,8 @@ MboxRelease(int mbox_id)
       }
       free(mbox->waiting_list);  // Free the waiting list
       mbox->waiting_list = NULL; // Set the waiting_list pointer to NULL to indicate it's cleaned up
+      break;
+      }
    }
 
    // block itself (call block_me) if there exists any process previously blocked on the mailbox that
