@@ -272,15 +272,10 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 0)
    {
       // Error message here
       return -1;
-   }
-
-   if (MailBoxTable[mbox_id].status == STATUS_RELEASED)
-   {
-      return -1;  // Mailbox was released
    }
 
    // Get the mailbox from the mail box table
@@ -389,17 +384,13 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 0)
    {
       // Error message here
       return -1;
    }
 
-   // Get the mailbox from the mail box table if it exists
-   if (MailBoxTable[mbox_id].status == STATUS_RELEASED)
-   {
-      return -1;  // Mailbox was released
-   }
+   // Get mailbox
    mail_box *mbox = &MailBoxTable[mbox_id];
 
    // Is anyone waiting? (check waiting list and wake up the first process to start waiting)
@@ -510,7 +501,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    check_kernel_mode("MboxReceive\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 0)
    {
       // Error message here
       return -1;
@@ -632,11 +623,12 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size) // non-blocking re
    int zero_slot = 0;
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL || MailBoxTable[mbox_id].status < 0)
    {
       // Error message here
       return -1;
    }
+
 
    // Get the mailbox
    mail_box *mbox = &MailBoxTable[mbox_id];
