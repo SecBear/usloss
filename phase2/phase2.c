@@ -314,6 +314,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
             popWaitList(mbox_id);
             // set the flag to unblock proc once message sent
             needToUnblock = 1;
+            break;
          }
          current = current->pNext; // Check the next wating process
       }
