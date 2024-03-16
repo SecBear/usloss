@@ -544,6 +544,11 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
             // Return 1 (success)
             return 1;
          }
+         else
+         {
+            // The process is waiting to receive, so just add this process
+            break;
+         }
       }
       current = current->pNext; // Check the next wating process
    }
@@ -556,7 +561,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
       while (current_proc != NULL)
       {
-         if (current_proc->process->delivered)
+         if (current_proc->process->delivered == 1)
          {
             popWaitList(mbox_id);   // remove process from waiting list
             memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
@@ -571,8 +576,10 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       waiting_for_io--;
 
       // messsage should be delivered now 
-
-      current_proc = mbox->waiting_list->pHead;
+      if (current_proc != NULL)
+      {
+         current_proc = mbox->waiting_list->pHead;
+      }
       while (current_proc != NULL)
       {
          if (current_proc->process->delivered)
