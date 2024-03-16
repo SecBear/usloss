@@ -696,21 +696,25 @@ MboxRelease(int mbox_id)
    }
 
    /* SLOT LIST */
-   // Reclaim the mail slots allocated for the mailbox so they can be reused
-   slot_ptr current_slot = mbox->slot_list->head_slot;
-   while (current_slot != NULL) 
+   // Only if we're a zero slot mailbox
+   if (mbox->zero_slot == 0)
    {
-      // Store the next slot pointer before freeing the current slot
-      slot_ptr next_slot = current_slot->next_slot;
+      // Reclaim the mail slots allocated for the mailbox so they can be reused
+      slot_ptr current_slot = mbox->slot_list->head_slot;
+      while (current_slot != NULL) 
+      {
+         // Store the next slot pointer before freeing the current slot
+         slot_ptr next_slot = current_slot->next_slot;
 
-      // Clean up the slot
-      CleanSlot(current_slot, mbox);
+         // Clean up the slot
+         CleanSlot(current_slot, mbox);
 
-      // Move to the next slot
-      current_slot = next_slot;
+         // Move to the next slot
+         current_slot = next_slot;
+      }
+      free(mbox->slot_list);  // Free the slot list
+      mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
    }
-   free(mbox->slot_list);  // Free the slot list
-   mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
 
    /* WAITING LIST */
    // Releaser checks if there are processes blocked on the mailbox
