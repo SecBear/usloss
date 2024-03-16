@@ -278,6 +278,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
       return -1;
    }
 
+   if (MailBoxTable[mbox_id].status == STATUS_RELEASED)
+   {
+      return -1;  // Mailbox was released
+   }
+
    // Get the mailbox from the mail box table
    mail_box *mbox = &MailBoxTable[mbox_id];
 
