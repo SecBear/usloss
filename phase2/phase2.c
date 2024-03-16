@@ -132,7 +132,7 @@ int start1(char *arg)
       // PID, status, Message
       ProcTable[i].status = STATUS_EMPTY;
       ProcTable[i].pid = STATUS_UNUSED;
-      ProcTable[i].message[MAX_MESSAGE] = "\0";
+      ProcTable[i].message[MAX_MESSAGE] = '\0';
    }
 
    /* Initialize int_vec and sys_vec, allocate mailboxes for interrupt
@@ -290,7 +290,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
       {
          if (current->process->status == STATUS_WAIT_RECEIVE) // If this process is waiting to recieve
          {
-            // If this is a zero slot mailbox, send process directly
+            // If this is a zero slot mailbox, send process directly (trying to just add to wait)
             if (mbox->zero_slot)
             {
                memcpy(current->process->message, msg_ptr, msg_size); // Copy the message into the process buffer
@@ -315,7 +315,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // If we're zero slot, we won't search for a slot
    if (mbox->zero_slot == 0)
    {
-      // Else, If slot is available in this mailbox, allocate a slot from your mail slot table and send it
+      // If slot is available in this mailbox, allocate a slot from your mail slot table and send it
       if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
       {  
          // Get next slot id and assign this slot to the table
@@ -379,7 +379,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || msg_ptr == NULL)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
    {
       // Error message here
       return -1;
@@ -398,7 +398,6 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
          if (current->process->status == STATUS_WAIT_RECEIVE) // If this process is waiting to recieve
          {
             // If this is a zero slot mailbox, send process directly
-            // Do something
             // else, send the message to next available mailbox and unblock proc
             pid = current->process->pid;
             // Remove process from waiting list
@@ -406,56 +405,72 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
             // set the flag to unblock proc once message sent
             needToUnblock = 1;
             // only if zero slot mailbox Direct send to the receiver who's waiting
+            if (mbox->zero_slot)
+            {
+               if (current->process->message[0] != '\0')// if we're dealing with a message,
+               {
+                  memcpy(current->process->message, msg_ptr, msg_size);
+               }
+            }
             // memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminate
-            // return 1; // success!
          }
          current = current->pNext; // Check the next wating process
       }
    } // Else, nobody is waiting
 
-   // If slot is available in this mailbox, allocate a slot from your mail slot table and send it
-   if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
-   {  
-      // Get next slot id and assign this slot to the table
-      int slot_id = GetNextSlotID();
-      slot_ptr new_slot = &MailSlotTable[slot_id];
-      // Initialize other fields
-      new_slot->mbox_id = mbox->mbox_id;
-      new_slot->status = STATUS_USED;
+  
+   // If we're zero slot, we won't search for a slot
+   if (mbox->zero_slot == 0)
+   {
+      // If slot is available in this mailbox, allocate a slot from your mail slot table and send it
+      if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
+      {  
+         // Get next slot id and assign this slot to the table
+         int slot_id = GetNextSlotID();
+         slot_ptr new_slot = &MailSlotTable[slot_id];
+         // Initialize other fields
+         new_slot->mbox_id = mbox->mbox_id;
+         new_slot->status = STATUS_USED;
 
-      // Copy the message into the slot
-      memcpy(new_slot->message, msg_ptr, msg_size);
+         // Copy the message into the slot
+         memcpy(new_slot->message, msg_ptr, msg_size);
 
-      // Link the new slot to the mailbox's linked list of slots
-      new_slot->next_slot = NULL;                       // New slot's pNext is NULL
-      new_slot->prev_slot = mbox->slot_list->tail_slot; // Old tail is new slot's pPrev
-      if (mbox->slot_list->head_slot == NULL)
-      {                                         // If the list's head is NULL,
-         mbox->slot_list->head_slot = new_slot; // New slot is the new head
+         // Link the new slot to the mailbox's linked list of slots
+         new_slot->next_slot = NULL;                       // New slot's pNext is NULL
+         new_slot->prev_slot = mbox->slot_list->tail_slot; // Old tail is new slot's pPrev
+         if (mbox->slot_list->head_slot == NULL)
+         {                                         // If the list's head is NULL,
+            mbox->slot_list->head_slot = new_slot; // New slot is the new head
+         }
+         else
+         {                                                    // Otherwise,
+            mbox->slot_list->tail_slot->next_slot = new_slot; // New slot is the tail's pNext
+         }
+         mbox->slot_list->tail_slot = new_slot; // New slot is now the tail
+         mbox->slot_list->count++;              // Increment the slot list count
+         numSlot++;                             // increment global list of slots
+
+         // Increment the mailbox's available_messages
+         mbox->available_messages++;
+
+         // remember to deallocate on receive
+
+         if (needToUnblock)
+         {
+            unblock_proc(pid);
+         }
+
+         return 0;
       }
-      else
-      {                                                    // Otherwise,
-         mbox->slot_list->tail_slot->next_slot = new_slot; // New slot is the tail's pNext
-      }
-      mbox->slot_list->tail_slot = new_slot; // New slot is now the tail
-      mbox->slot_list->count++;              // Increment the slot list count
-      numSlot++;                             // increment global list of slots
-
-      // Increment the mailbox's available_messages
-      mbox->available_messages++;
-
-      // remember to deallocate on receive
-
-      if (needToUnblock)
-      {
-         unblock_proc(pid);
-      }
-
-      return 0;
    }
 
-   // No available slot was found,
-   // return -2
+   // check if we need to unblock a process
+   if (needToUnblock)
+   {
+      unblock_proc(pid);
+   }
+   // No available slot,
+   // block the sender, add sender to waiting list
    return -2;
 } 
 
@@ -471,6 +486,8 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mutex or semaphore, etc. note: interrupts are disabled)
 {
    int zero_slot = 0;
+
+   check_kernel_mode("MboxReceive\n");
 
    // First, check for basic errors
    if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX)
@@ -524,25 +541,40 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // if we're a zero slot, get message from wait list
    if (mbox->zero_slot)
    {
-      while(1) // THIS DOESN"T WORK
+      // find the message
+      waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
+      while (current_proc != NULL)
       {
-         // find the message
-         waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
-         while (current_proc != NULL)
+         if (current_proc->process->delivered)
          {
-            if (current_proc->process->delivered)
-            {
-               popWaitList(mbox_id);   // remove process from waiting list
-               memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
-               return 1;
-            }
-            current_proc = current_proc->pNext; // keep looking
+            popWaitList(mbox_id);   // remove process from waiting list
+            memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
+            return 1;
          }
-         // if no message available, block and repeat loop
-         AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE, NULL, -1);
-         block_me;
+         current_proc = current_proc->pNext; // keep looking
       }
+      // if no message available, block
+      AddToWaitList(mbox_id, STATUS_WAIT_RECEIVE, NULL, -1);
+      //waiting_for_io++;
+      block_me(STATUS_WAIT_RECEIVE);
+
+      // messsage should be delivered now 
+
+      current_proc = mbox->waiting_list->pHead;
+      while (current_proc != NULL)
+      {
+         if (current_proc->process->delivered)
+         {
+            popWaitList(mbox_id);   // remove process from waiting list
+            memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
+            return 1;
+         }
+         current_proc = current_proc->pNext; // keep looking
+         }
+      // if no message available still, we're synchronizing 
+      return 1;
    }
+   
 
    // block until message is here (using semaphores)
    if (mbox->available_messages <= 0) // If no messages in this mailbox,
@@ -1034,7 +1066,7 @@ void clock_handler2(int dev, void *pUnit)
    if (clock_count == 5) // If this is the 5th interrupt,
    {
       clock_count = 0; // Reset clock count
-      MboxCondSend(clock_mbox, NULL, NULL);   // Conditionally send to the clock I/O mailbox - NULL NULL?
+      MboxCondSend(clock_mbox, pUnit, sizeof(int));   // Conditionally send to the clock I/O mailbox - NULL NULL?
    }
 
    // time slice (check if time is up, if so, make ready and dispatch)
