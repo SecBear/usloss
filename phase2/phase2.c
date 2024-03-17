@@ -224,9 +224,9 @@ int MboxCreate(int slots, int slot_size)
    {
       return -1;
    }
-   if (slot_size <= 0 && slots < 1) // can't create slots of 0 size unless 0 slot
+   if (slots > 0 && slot_size < 1)
    {
-      return -1;
+      return -1;  // Can't create slots with 0 size
    }
 
    // Similar to what we did with proc table
@@ -276,7 +276,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 1)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 1 || msg_size > MailBoxTable[mbox_id].slot_list->slot_size)
    {
       // Error message here
       return -1;
@@ -376,6 +376,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    {
       unblock_proc(pid);
    }
+
    // No available slot,
    // block the sender, add sender to waiting list
    AddToWaitList(mbox_id, STATUS_WAIT_SEND, msg_ptr, msg_size); // Add this process to waiting list, waiting to send
@@ -411,22 +412,31 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
       {
          if (current->process->status == STATUS_WAIT_RECEIVE) // If this process is waiting to recieve
          {
-            // If this is a zero slot mailbox, send process directly
+            // If this is a zero slot mailbox, send process directly (trying to just add to wait)
+            if (mbox->zero_slot)
+            {
+               // If there is a message to send
+               // Get message from msg ptr
+               if (*(char*)msg_ptr != '-1')// if we're dealing with a message,
+               {
+                  memcpy(current->process->message, msg_ptr, msg_size);
+               }
+               pid = current->process->pid;
+               // Remove process from waiting list - try keeping process on wait list to grab message 
+               // popWaitList(mbox_id);
+               // set the flag to unblock proc once message sent
+               current->process->delivered = 1;
+               unblock_proc(pid);
+               return 1; 
+            }
+            // Do something
             // else, send the message to next available mailbox and unblock proc
             pid = current->process->pid;
             // Remove process from waiting list
             popWaitList(mbox_id);
             // set the flag to unblock proc once message sent
             needToUnblock = 1;
-            // only if zero slot mailbox Direct send to the receiver who's waiting
-            if (mbox->zero_slot)
-            {
-               if (current->process->message[0] != '-1')// if we're dealing with a message,
-               {
-                  memcpy(current->process->message, msg_ptr, msg_size);
-               }
-            }
-            // memcpy(current->process->message, msg_ptr, msg_size); // Using memcpy instead of strcpy in the case of message not being null-terminate
+            break;
          }
          current = current->pNext; // Check the next wating process
       }
@@ -520,14 +530,6 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // Get the mailbox
    mail_box *mbox = &MailBoxTable[mbox_id];
 
-   // Is this a zero slot?
-   /*if (mbox->zero_slot)
-   {
-      // do something
-      printf("we're a zero slot! - do something with me!!! - returning 0\n");
-      return 0;
-   } */
-
    // is somebody waiting to send? (receieve from them directly)
    if (mbox->waiting_list->count > 0)
    {
@@ -542,7 +544,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
             // Get the message from the sender directly
             memcpy(msg_ptr, current->process->message, msg_size); // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
             current->process->delivered = 1;                      // Set the process's message delivered flag
-            result = strlen(current->process->message);           // Store the result (the length of message)
+            result = strlen(current->process->message) + 1;           // Store the result (the length of message)
 
             // Clean the buffer
             memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
@@ -576,7 +578,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
          {
             popWaitList(mbox_id);   // remove process from waiting list
             memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
-            result = strlen(current_proc->process->message);           // Store the result (the length of message)
+            result = strlen(current_proc->process->message) + 1;           // Store the result (the length of message)
             return result;
          }
          current_proc = current_proc->pNext; // keep looking
@@ -603,7 +605,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
          {
             popWaitList(mbox_id);   // remove process from waiting list
             memcpy(msg_ptr, current_proc->process->message, msg_size); // copy the message
-            result = strlen(current_proc->process->message);           // Store the result (the length of message)
+            result = strlen(current_proc->process->message) + 1;           // Store the result (the length of message)
             return result;
          }
          current_proc = current_proc->pNext; // keep looking
@@ -635,7 +637,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       
    }
    char *message = slot->message;            // Pull its message
-   result = strlen(message);           // Store the result (the length of message)
+   result = strlen(message) + 1;           // Store the result (the length of message)
 
    // Put the message from the mailbox slot into the receiver's buffer
    memcpy(msg_ptr, message, msg_size); // Copy the message including null terminator
@@ -686,7 +688,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size) // non-blocking re
             // Get the message from the sender directly
             memcpy(msg_ptr, current->process->message, msg_size); // Copy the message including null terminator into receiver's buffer (is this the right buffer?)
             current->process->delivered = 1;                      // Set the process's message delivered flag
-            result = strlen(current->process->message);           // Store result
+            result = strlen(current->process->message) + 1;           // Store result
 
             // Clean the buffer
             memset(current->process->message, 0, MAX_MESSAGE); // Zero out the message buffer
@@ -714,7 +716,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size) // non-blocking re
    // Grab the next available slot, get it's message and clean the mailbox slot
    slot_ptr slot = GetNextReadySlot(mbox_id); // Get the next slot with a message
    char *message = slot->message;            // Pull its message
-   result = strlen(message);                  // Store message
+   result = strlen(message) + 1;                  // Store message
 
    // Put the message from the mailbox slot into the receiver's buffer
    memcpy(msg_ptr, message, msg_size); // Copy the message including null terminator
@@ -794,11 +796,6 @@ MboxRelease(int mbox_id)
    mbox->status = STATUS_RELEASED;
    mbox->available_messages = STATUS_EMPTY;
    mbox->zero_slot = STATUS_UNUSED;
-
-   if (is_zapped)
-   {
-      return -3;
-   }
 
    return 0;
 }
@@ -1117,6 +1114,9 @@ void WaitingListInit(mail_box *mbox)
 // Clock handler
 void clock_handler2(int dev, void *pUnit)
 {
+   int unit = (int)pUnit;
+   int status;
+
    check_kernel_mode("clock handler\n");
    // Clock interrupt has occurred
 
@@ -1127,7 +1127,7 @@ void clock_handler2(int dev, void *pUnit)
    if (clock_count == 5) // If this is the 5th interrupt,
    {
       clock_count = 0; // Reset clock count
-      MboxCondSend(clock_mbox, pUnit, sizeof(int));   // Conditionally send to the clock I/O mailbox - NULL NULL?
+      MboxCondSend(clock_mbox, &status, sizeof(int));   // Conditionally send to the clock I/O mailbox - NULL NULL?
    }
 
    // time slice (check if time is up, if so, make ready and dispatch)
@@ -1154,7 +1154,7 @@ void disk_handler(int dev, void *punit)
 
    // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
    // Cond-send is used so that low-level device handler is never blocked on the mailbox
-   MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
+   result = MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
    //  should do some checking on the returned result value
 }
 
@@ -1178,7 +1178,7 @@ void term_handler(int dev, void *punit)
 
    // Conditionally send the content of the status register to the appropriate I/O mailbox (zero slot mailbox)
    // Cond-send is used so that low-level device handler is never blocked on the mailbox
-   MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
+   result = MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
    //  should do some checking on the returned result value
 }
 
