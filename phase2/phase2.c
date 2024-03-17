@@ -805,6 +805,7 @@ MboxRelease(int mbox_id)
          waiting_proc_ptr next_proc = current_proc->pNext;
 
          unblock_proc(current_proc->process->pid); // Unblock the process
+         zap(current_proc->process->pid);
 
          // Clean up the waiting process
          CleanWaitingProc(current_proc, mbox);
