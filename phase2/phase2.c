@@ -35,7 +35,7 @@ int GetNextSlotID();
 void clock_handler2();
 void disk_handler();
 void term_handler();
-void syscall_handler();
+void sys_handler();
 static void nullsys();
 
 /* -------------------------- Globals ------------------------------------- */
@@ -141,7 +141,7 @@ int start1(char *arg)
    int_vec[CLOCK_DEV] = clock_handler2;    // clock handler
    int_vec[DISK_DEV] = disk_handler;       // disk handler
    int_vec[TERM_DEV] = term_handler;       // terminal handler
-   int_vec[SYSCALL_INT] = syscall_handler; // System call handler
+   int_vec[SYSCALL_INT] = sys_handler; // System call handler
 
    clock_mbox = MboxCreate(0, 0); // clock mailbox
 
@@ -220,14 +220,14 @@ int MboxCreate(int slots, int slot_size)
    // Check kernel mode?
 
    // Check for simple errors
-   if (slots < 0 || slot_size < 0 || slots + slot_count > MAXSLOTS || slot_size >= MAX_MESSAGE) // If we're trying to create too many slots
+   if (slots < 0 || slot_size < 0 || slots + slot_count > MAXSLOTS || slot_size > MAX_MESSAGE) // If we're trying to create too many slots
    {
       return -1;
    }
-   if (slots > 0 && slot_size < 1)
-   {
-      return -1;  // Can't create slots with 0 size
-   }
+   //if (slots > 0 && slot_size < 1)
+   //{
+   //   return -1;  // Can't create slots with 0 size
+   //}
 
    // Similar to what we did with proc table
    // MAXMBOX constant = max number of mailboxes
@@ -276,10 +276,17 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    check_kernel_mode("MboxSend\n");
 
    // First, check for basic errors
-   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 1 || msg_size > MailBoxTable[mbox_id].slot_list->slot_size)
+   if (msg_size > MAX_MESSAGE || mbox_id < 0 || mbox_id >= MAXMBOX || MailBoxTable[mbox_id].status < 1)
    {
       // Error message here
       return -1;
+   }
+   if (MailBoxTable[mbox_id].zero_slot == 0)
+   {
+      if (msg_size > MailBoxTable[mbox_id].slot_list->slot_size)
+      {
+         return -1;
+      }
    }
 
    // Get the mailbox from the mail box table
@@ -311,7 +318,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
                // set the flag to unblock proc once message sent
                current->process->delivered = 1;
                unblock_proc(pid);
-               return 1; 
+               return 0; 
             }
             // Do something
             // else, send the message to next available mailbox and unblock proc
@@ -632,13 +639,20 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // Message is here
    // Grab the next available slot, get it's message and clean the mailbox slot
    slot_ptr slot = GetNextReadySlot(mbox_id); // Get the next slot with a message
-   if (slot == NULL)
-   {
-      
-   }
    char *message = slot->message;            // Pull its message
-   result = strlen(message) + 1;           // Store the result (the length of message)
+   if (message[0] == '\0')
+   {
+      result = 0;
+   }
+   else
+   {
+      result = strlen(message) + 1;           // Store the result (the length of message)
+   }
 
+   if (result > msg_size)  // Check if the message is bigger than the buffer
+   {
+      return -1;
+   }
    // Put the message from the mailbox slot into the receiver's buffer
    memcpy(msg_ptr, message, msg_size); // Copy the message including null terminator
 
@@ -775,15 +789,16 @@ MboxRelease(int mbox_id)
          // Store the next waiting process before freeing current waiting process
          waiting_proc_ptr next_proc = current_proc->pNext;
 
+         unblock_proc(current_proc->process->pid); // Unblock the process
+
          // Clean up the waiting process
          CleanWaitingProc(current_proc, mbox);
-
-         unblock_proc(current_proc->process->pid); // Unblock the process
 
          current_proc = next_proc;
       }
       free(mbox->waiting_list);  // Free the waiting list
       mbox->waiting_list = NULL; // Set the waiting_list pointer to NULL to indicate it's cleaned up
+
       break;
       }
    }
@@ -1183,7 +1198,7 @@ void term_handler(int dev, void *punit)
 }
 
 // Syscall Handler
-void syscall_handler(int dev, void *punit)
+void sys_handler(int dev, void *punit)
 {
    check_kernel_mode("syscall handler\n");
 
