@@ -391,6 +391,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // block the sender, add sender to waiting list
    AddToWaitList(mbox_id, STATUS_WAIT_SEND, msg_ptr, msg_size); // Add this process to waiting list, waiting to send
    block_me(STATUS_WAIT_SEND);                                  // Sender is waiting to send
+   // Check if mailbox is released
+   if (mbox->status == STATUS_RELEASED)
+   {
+      return -3;
+   }
 
    return 0;
 
@@ -785,33 +790,12 @@ MboxRelease(int mbox_id)
 
    mbox->status = STATUS_RELEASED; // Set status to released in case of interrutps - may need to set this to STATUS_RELEASING
 
-   /* SLOT LIST */
-   // Only if we're a zero slot mailbox
-   if (mbox->zero_slot == 0)
-   {
-      // Reclaim the mail slots allocated for the mailbox so they can be reused
-      slot_ptr current_slot = mbox->slot_list->head_slot;
-      while (current_slot != NULL) 
-      {
-         // Store the next slot pointer before freeing the current slot
-         slot_ptr next_slot = current_slot->next_slot;
-
-         // Clean up the slot
-         CleanSlot(current_slot, mbox);
-
-         // Move to the next slot
-         current_slot = next_slot;
-      }
-      free(mbox->slot_list);  // Free the slot list
-      mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
-   }
-
    /* WAITING LIST */
    // Releaser checks if there are processes blocked on the mailbox
    // How many processes are blocked?
    if (mbox->waiting_list->count > 0)  // There are blocked processes
    {
-      // Traverse through and unblock_proc(pid) each one
+      // Traverse through and zap unblock_proc(pid) each one
       waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
       while (current_proc != NULL)
       {
@@ -832,6 +816,27 @@ MboxRelease(int mbox_id)
 
       break;
       }
+   }
+
+   /* SLOT LIST */
+   // Only if we're a zero slot mailbox
+   if (mbox->zero_slot == 0)
+   {
+      // Reclaim the mail slots allocated for the mailbox so they can be reused
+      slot_ptr current_slot = mbox->slot_list->head_slot;
+      while (current_slot != NULL) 
+      {
+         // Store the next slot pointer before freeing the current slot
+         slot_ptr next_slot = current_slot->next_slot;
+
+         // Clean up the slot
+         CleanSlot(current_slot, mbox);
+
+         // Move to the next slot
+         current_slot = next_slot;
+      }
+      free(mbox->slot_list);  // Free the slot list
+      mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
    }
 
    // block itself (call block_me) if there exists any process previously blocked on the mailbox that
@@ -1350,6 +1355,11 @@ void CleanSlot(slot_ptr slot, mail_box *mbox)
    // If a process is waiting on a slot, give them the slot
    // Check if there are any waiting processes
    int mbox_id = mbox->mbox_id;
+   if (mbox->status == STATUS_WAIT_RELEASE || mbox->status == STATUS_RELEASED)
+   {
+      return 0;
+   }
+
    if (mbox->waiting_list->count > 0)  // If there are waiting processes
    {
       if (mbox->zero_slot == 0)        // If we're not a zero slot mailbox
