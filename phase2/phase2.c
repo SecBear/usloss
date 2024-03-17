@@ -839,8 +839,7 @@ MboxRelease(int mbox_id)
       mbox->slot_list = NULL; // Set slot_list pointer to NULL to indicate it's cleaned up
    }
 
-   // block itself (call block_me) if there exists any process previously blocked on the mailbox that
-      //hasn't returned from either sending or recieving operation -- I don't understand this portion
+   // block_me(STATUS_WAIT_RELEASE);   // Don't know how to wake up from this
 
    /* OTHER VALUES */
    mbox->mbox_id = STATUS_UNUSED;
