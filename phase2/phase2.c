@@ -540,7 +540,35 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
    // Get the mailbox
    mail_box *mbox = &MailBoxTable[mbox_id];
 
-   // is somebody waiting to send? (receieve from them directly)
+   // Check if there are available messages in the mailbox slots
+   if (mbox->available_messages > 0)
+   {
+   slot_ptr slot = GetNextReadySlot(mbox_id);
+   if (slot != NULL)
+   {
+      char *message = slot->message;
+      if (message[0] == '\0')
+      {
+         result = 0;
+      }
+      else
+      {
+         result = strlen(message) + 1;
+      }
+
+      if (result > msg_size)
+      {
+         return -1;
+      }
+
+      memcpy (msg_ptr, message, msg_size);
+      CleanSlot(slot, mbox);
+      return result;
+   }
+   }
+
+
+   // Check if there are any processes waiting to send
    if (mbox->waiting_list->count > 0)
    {
       // Find the process already waiting, see if they're waiting to send
