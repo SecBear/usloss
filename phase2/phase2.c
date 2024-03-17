@@ -37,7 +37,7 @@ void disk_handler();
 void term_handler();
 void sys_handler();
 static void nullsys();
-static sysargs *currentSysArgs = NULL;
+static sysargs *args = NULL;
 int SysVec();
 
 /* -------------------------- Globals ------------------------------------- */
@@ -1201,18 +1201,25 @@ void term_handler(int dev, void *punit)
 }
 
 // Syscall Handler
-void sys_handler(int dev, void *unit) {
-    check_kernel_mode("sys_handler");
+void sys_handler(int dev, void *punit) {
+   check_kernel_mode("sys_handler");
+   sysargs *args = (sysargs*)punit;
 
-    if (dev != SYSCALL_INT) {
-        halt(1); // Only proceed if the interrupt is a syscall interrupt
-    }
-
-    if (currentSysArgs == NULL || currentSysArgs->number < 0 || currentSysArgs->number >= MAXSYSCALLS) {
-        nullsys(currentSysArgs);
-    } else {
-        sys_vec[currentSysArgs->number](currentSysArgs);
-    }
+   if (dev != SYSCALL_INT) {
+      halt(1); // Only proceed if the interrupt is a syscall interrupt
+   }
+   // check if invalid sys number
+   if (args->number >= MAXSYSCALLS)
+   {
+      printf("syscall_handler(): sys number %d is wrong. Halting...\n", args->number);
+      halt(1);
+   }
+   else if (args == NULL || args->number < 0) {
+      nullsys(args);
+   } else
+   {
+      sys_vec[args->number](args);
+   }
 }
 
 // nullsys for system call handler
