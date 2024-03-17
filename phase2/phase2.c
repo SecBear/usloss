@@ -37,6 +37,8 @@ void disk_handler();
 void term_handler();
 void sys_handler();
 static void nullsys();
+static sysargs *currentSysArgs = NULL;
+int SysVec();
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -142,6 +144,7 @@ int start1(char *arg)
    int_vec[DISK_DEV] = disk_handler;       // disk handler
    int_vec[TERM_DEV] = term_handler;       // terminal handler
    int_vec[SYSCALL_INT] = sys_handler; // System call handler
+  
 
    clock_mbox = MboxCreate(0, 0); // clock mailbox
 
@@ -159,6 +162,16 @@ int start1(char *arg)
    {
       sys_vec[i] = nullsys; // initialize every system call handler as nullsys
    }
+
+
+void initializeSysVec() {
+    int i;
+    for (i = 0; i < MAXSYSCALLS; i++) {
+        sys_vec[i] = nullsys; // Default handler
+    }
+    sys_vec[SOME_SYSCALL_NUMBER] = mySyscallHandler; // Example assignment
+}
+
 
    enableInterrupts();
 
@@ -1198,28 +1211,18 @@ void term_handler(int dev, void *punit)
 }
 
 // Syscall Handler
-void sys_handler(int dev, void *punit)
-{
-   check_kernel_mode("syscall handler\n");
+void sys_handler(int dev, void *unit) {
+    check_kernel_mode("sys_handler");
 
-   int unit = (int)punit;
+    if (dev != SYSCALL_INT) {
+        halt(1); // Only proceed if the interrupt is a syscall interrupt
+    }
 
-   sysargs *sys_ptr;
-   sys_ptr = (sysargs *)unit;
-
-   // Sanity check: if the interrupt is not SYSCALL_INT, halt(1)
-   if (dev != SYSCALL_INT)
-   {
-      halt(1);
-   }
-   // check what system - if the call is not in the range between 0 and MAXSYSCALLS, halt(1)
-   if (unit < 0 || unit > MAXSYSCALLS)
-   {
-      halt(1);
-   }
-
-   // now it is time to call the appropriate system call handler
-   sys_vec[sys_ptr->number](sys_ptr);
+    if (currentSysArgs == NULL || currentSysArgs->number < 0 || currentSysArgs->number >= MAXSYSCALLS) {
+        nullsys(currentSysArgs);
+    } else {
+        sys_vec[currentSysArgs->number](currentSysArgs);
+    }
 }
 
 // nullsys for system call handler
