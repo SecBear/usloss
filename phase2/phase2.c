@@ -1346,6 +1346,69 @@ void CleanSlot(slot_ptr slot, mail_box *mbox)
 
    // Decrement global number of slots 
    numSlot--;
+
+   // If a process is waiting on a slot, give them the slot
+   // Check if there are any waiting processes
+   int mbox_id = mbox->mbox_id;
+   if (mbox->waiting_list->count > 0)  // If there are waiting processes
+   {
+      if (mbox->zero_slot == 0)        // If we're not a zero slot mailbox
+      {
+         // If slot is available in this mailbox, allocate a slot from your mail slot table and put waiting process in
+         if (mbox->slot_list->count < mbox->slot_list->slot_count) // slot is available for allocation
+         {  
+            waiting_proc_ptr current_proc = mbox->waiting_list->pHead;
+            while (current_proc != NULL)
+            {
+               if (current_proc->process->message != NULL)
+               {
+                  
+                  // Get next slot id and assign this slot to the table
+                  int slot_id = GetNextSlotID();
+                  slot_ptr new_slot = &MailSlotTable[slot_id];
+                  // Initialize other fields
+                  new_slot->mbox_id = mbox->mbox_id;
+                  new_slot->status = STATUS_USED;
+
+                  // Check message will fit into slot
+                  if (mbox->slot_list->slot_size < current_proc->process->msg_size)
+                  {
+                     return -1;
+                  }
+                     // Copy the message into the slot
+                     memcpy(new_slot->message, current_proc->process->message, current_proc->process->msg_size);
+
+                     // Link the new slot to the mailbox's linked list of slots
+                     new_slot->next_slot = NULL;                       // New slot's pNext is NULL
+                     new_slot->prev_slot = mbox->slot_list->tail_slot; // Old tail is new slot's pPrev
+                     if (mbox->slot_list->head_slot == NULL)
+                     {                                         // If the list's head is NULL,
+                        mbox->slot_list->head_slot = new_slot; // New slot is the new head
+                     }
+                     else
+                     {                                                    // Otherwise,
+                        mbox->slot_list->tail_slot->next_slot = new_slot; // New slot is the tail's pNext
+                     }
+                     mbox->slot_list->tail_slot = new_slot; // New slot is now the tail
+                     mbox->slot_list->count++;              // Increment the slot list count
+                     numSlot++;                             // increment global list of slots
+
+                     // Increment the mailbox's available_messages
+                     mbox->available_messages++;
+
+                     // Remove waiting process from wait list
+                     popWaitList(mbox_id);
+
+                     // Unblock the waiting process
+                     unblock_proc(current_proc->process->pid);
+
+                     return 0;
+               }
+               current_proc = current_proc->pNext; // keep looking
+            }
+         }  
+      }
+   }
 }
 
 void CleanWaitingProc(waiting_proc_ptr waiting_proc, mail_box *mbox)
