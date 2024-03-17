@@ -457,7 +457,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
    if (mbox->zero_slot == 0)
    {
       // If we're going to exceed total system number of slots, return -2
-      if (numSlot + mbox->slot_list->count >= MAXSLOTS)
+      if (numSlot >= MAXSLOTS) // Previously added this to the current slots in use (double counted)
       {
          return -2;
       }
@@ -1220,10 +1220,10 @@ static void nullsys(sysargs *args)
 {
    if (args == NULL)
    {
-      printf("nullsys(); Invalid syscall 0. Halting...\n");
+      printf("nullsys(): Invalid syscall 0. Halting...\n");
    }
    else{
-   printf("nullsys(); Invalid syscall %d. Halting...\n", args->number);
+   printf("nullsys(): Invalid syscall %d. Halting...\n", args->number);
    }
    halt(1);
 } /* nullsys */
