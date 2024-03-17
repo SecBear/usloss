@@ -163,16 +163,6 @@ int start1(char *arg)
       sys_vec[i] = nullsys; // initialize every system call handler as nullsys
    }
 
-
-void initializeSysVec() {
-    int i;
-    for (i = 0; i < MAXSYSCALLS; i++) {
-        sys_vec[i] = nullsys; // Default handler
-    }
-    sys_vec[SOME_SYSCALL_NUMBER] = mySyscallHandler; // Example assignment
-}
-
-
    enableInterrupts();
 
    /* Create a process for start2, then block on a join until start2 quits */
@@ -1228,7 +1218,13 @@ void sys_handler(int dev, void *unit) {
 // nullsys for system call handler
 static void nullsys(sysargs *args)
 {
+   if (args == NULL)
+   {
+      printf("nullsys(); Invalid syscall 0. Halting...\n");
+   }
+   else{
    printf("nullsys(); Invalid syscall %d. Halting...\n", args->number);
+   }
    halt(1);
 } /* nullsys */
 
