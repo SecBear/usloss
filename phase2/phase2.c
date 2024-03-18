@@ -13,7 +13,6 @@
 #include <phase2.h>
 #include <usloss.h>
 #include <string.h>
-
 #include "message.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
