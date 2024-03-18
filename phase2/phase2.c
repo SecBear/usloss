@@ -394,6 +394,17 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
    // Check if mailbox is released
    if (mbox->status == STATUS_RELEASED)
    {
+      int pid = getpid();
+      waiting_proc_ptr current_proc = mbox->waiting_list->pHead;  // Get current proc
+      while (current_proc != NULL)
+      {
+         if (current_proc->process->pid == pid) // If we've got our current process
+         {
+            current_proc->process->status = STATUS_EMPTY;   // Set this process's status to empty as to not get zapped
+         }
+         current_proc = current_proc->pNext; // Get next process
+      }
+
       return -3;
    }
 
@@ -632,10 +643,20 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);
       waiting_for_io--;
 
-      // check if mailbox has been released
+      // Check if mailbox is released
       if (mbox->status == STATUS_RELEASED)
       {
-         return -1;
+         int pid = getpid();
+         waiting_proc_ptr current_proc = mbox->waiting_list->pHead;  // Get current proc
+         while (current_proc != NULL)
+         {
+            if (current_proc->process->pid == pid) // If we've got our current process
+            {
+               current_proc->process->status = STATUS_EMPTY;   // Set this process's status to empty as to not get zapped
+            }
+            current_proc = current_proc->pNext; // Get next process
+         }
+         return -3;
       }
 
       // messsage should be delivered now
@@ -666,10 +687,21 @@ int MboxReceive(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for
       block_me(STATUS_WAIT_RECEIVE);                         // Block with status waiting to receive
    }
 
-   // Check if mailbox has been released or is releasing
+   // Check if mailbox is released
    if (mbox->status == STATUS_RELEASED)
    {
-      return -1;
+      int pid = getpid();
+      waiting_proc_ptr current_proc = mbox->waiting_list->pHead;  // Get current proc
+      while (current_proc != NULL)
+      {
+         if (current_proc->process->pid == pid) // If we've got our current process
+         {
+            current_proc->process->status = STATUS_EMPTY;   // Set this process's status to empty as to not get zapped
+         }
+         current_proc = current_proc->pNext; // Get next process
+      }
+
+      return -3;
    }
 
    // Message is here
@@ -805,7 +837,10 @@ MboxRelease(int mbox_id)
          waiting_proc_ptr next_proc = current_proc->pNext;
 
          unblock_proc(current_proc->process->pid); // Unblock the process
-         zap(current_proc->process->pid);
+         if (current_proc->process->status != STATUS_EMPTY)
+         {
+            zap(current_proc->process->pid);
+         }
 
          // Clean up the waiting process
          CleanWaitingProc(current_proc, mbox);
