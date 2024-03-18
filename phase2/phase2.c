@@ -395,6 +395,22 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size) // atomic (no need for mu
 
 } /* MboxSend */
 
+/* ------------------------------------------------------------------------
+   Name - MboxCondSend
+   Purpose - Attempts to send a message to the specified mailbox without blocking
+             the sender. If the mailbox is full or a zero-slot mailbox without
+             a waiting receiver, the message is not sent, and the function
+             returns immediately with a status indicating the condition.
+   Parameters - int mbox_id: the ID of the mailbox to send the message to.
+                void *msg_ptr: pointer to the message data to send.
+                int msg_size: size of the message data in bytes.
+   Returns - 0 if the message is successfully sent.
+             -1 if there's an error with the input parameters or mailbox state.
+             -2 if the mailbox is full and the message cannot be sent without blocking.
+   Side Effects - If there's a process waiting to receive on the mailbox and the
+                  conditions allow, the message is delivered directly to this
+                  receiver, potentially unblocking it.
+   ----------------------------------------------------------------------- */
 int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size) // non-blocking send
 {
    int needToUnblock = 0;
@@ -774,6 +790,21 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int msg_size) // non-blocking re
    return result; // success
 }
 
+/* ------------------------------------------------------------------------
+   Name - MboxRelease
+   Purpose - Releases a specified mailbox, making it available for reuse. 
+             This function cleans up any allocated resources associated with 
+             the mailbox, unblocks any processes waiting on the mailbox, 
+             and marks the mailbox as released. If any processes were waiting
+             to send or receive messages on this mailbox, they are unblocked
+             and may be zapped if they were not in an empty status.
+   Parameters - int mbox_id: the ID of the mailbox to release.
+   Returns - 0 on successful release of the mailbox.
+             -1 if the mailbox is already released, or if an invalid mailbox ID is given.
+   Side Effects - Frees up slots and waiting lists associated with the mailbox. 
+                  Processes waiting on the mailbox are unblocked and potentially zapped.
+                  The mailbox's resources are cleaned up and the mailbox ID is made available for reuse.
+   ----------------------------------------------------------------------- */
 MboxRelease(int mbox_id)
 {  
    mail_box *mbox = &MailBoxTable[mbox_id];
@@ -847,6 +878,14 @@ MboxRelease(int mbox_id)
    return 0;
 }
 
+/* ------------------------------------------------------------------------
+   Name - check_io
+   Purpose - Checks if at least one process is blocked on an I/O mailbox, 
+             including the clock mailbox.
+   Parameters - None.
+   Returns - 1 if at least one process is blocked on an I/O mailbox, 0 otherwise.
+   Side Effects - None.
+   ----------------------------------------------------------------------- */
 int check_io()
 {
    // return 1 if at least one process is blocked on an I/O mailbox (including clock mbox)
@@ -858,6 +897,13 @@ int check_io()
    return 0;   // Otherwise return 0
 }
 
+/* ------------------------------------------------------------------------
+   Name - GetNextMboxID
+   Purpose - Allocates a new mailbox ID by finding the next available ID.
+   Parameters - None.
+   Returns - The next available mailbox ID if successful, -1 if no ID is available.
+   Side Effects - Increments the global variable tracking the next available mailbox ID.
+   ----------------------------------------------------------------------- */
 // Get the next ready mailbox ID and return it
 int GetNextMboxID()
 {
@@ -883,6 +929,13 @@ int GetNextMboxID()
    return new_mbox_id;
 }
 
+/* ------------------------------------------------------------------------
+   Name - GetNextSlotID
+   Purpose - Allocates a new slot ID by finding the next available ID.
+   Parameters - None.
+   Returns - The next available slot ID if successful, -1 if no ID is available.
+   Side Effects - Increments the global variable tracking the next available slot ID.
+   ----------------------------------------------------------------------- */
 // Get the next ready slot ID and return it
 int GetNextSlotID()
 {
@@ -911,6 +964,16 @@ int GetNextSlotID()
 
 // AddToList functions to add an item to the end of a linked list
 
+/* ------------------------------------------------------------------------
+   Name - AddToWaitList
+   Purpose - Adds a process to the waiting list of a specified mailbox.
+   Parameters - int mbox_id: the ID of the mailbox.
+                int status: the status to assign to the process.
+                void *msg_ptr: pointer to the message (if any) associated with the process.
+                int msg_size: size of the message (if any).
+   Returns - 1 if the process is successfully added to the waiting list, 0 otherwise.
+   Side Effects - May increase the count of waiting processes for the mailbox.
+   ----------------------------------------------------------------------- */
 // Add the current process to a mailbox's list of watiing processes along with its message if it's waiting to send
 int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
 {
@@ -981,6 +1044,13 @@ int AddToWaitList(int mbox_id, int status, void *msg_ptr, int msg_size)
    return 1;
 }
 
+/* ------------------------------------------------------------------------
+   Name - popWaitList
+   Purpose - Removes the first process from the waiting list of a specified mailbox.
+   Parameters - int mbox_id: the ID of the mailbox.
+   Returns - 1 if a process is successfully removed, 0 if the waiting list is empty.
+   Side Effects - Decreases the count of waiting processes for the mailbox.
+   ----------------------------------------------------------------------- */
 // PopList functions to pop the first item added to the linked list (head)
 
 // Pops the head process from the waiting list and returns the waiting_proc_ptr
@@ -1023,6 +1093,13 @@ int popWaitList(int mbox_id)
    return 1;
 }
 
+/* ------------------------------------------------------------------------
+   Name - GetNextReadySlot
+   Purpose - Finds the next available slot with a message in a specified mailbox.
+   Parameters - int mbox_id: the ID of the mailbox.
+   Returns - Pointer to the next ready slot if successful, NULL if no slot is ready.
+   Side Effects - None.
+   ----------------------------------------------------------------------- */
 // Get the next ready slot with message in a mailbox and clean the slot
 slot_ptr GetNextReadySlot(int mbox_id)
 {
@@ -1053,6 +1130,15 @@ slot_ptr GetNextReadySlot(int mbox_id)
 
 /* LIST INITIALIZATION FUNCTIONS */
 
+/* ------------------------------------------------------------------------
+   Name - SlotListInit
+   Purpose - Initializes the slot list for a mailbox.
+   Parameters - mail_box *mbox: pointer to the mailbox.
+                int slots: number of slots to initialize.
+                int slot_size: size of each slot.
+   Returns - None.
+   Side Effects - Allocates memory for and initializes the slot list of the mailbox.
+   ----------------------------------------------------------------------- */
 // Initializes the slot list of a mailbox but does not assign the slots yet
 // Takes a pointer to the mailbox, the number and size of slots
 void SlotListInit(mail_box *mbox, int slots, int slot_size)
@@ -1070,6 +1156,13 @@ void SlotListInit(mail_box *mbox, int slots, int slot_size)
    mbox->slot_list->count = 0;                    // Initialize count to 0
 }
 
+/* ------------------------------------------------------------------------
+   Name - WaitingListInit
+   Purpose - Initializes the waiting list for a mailbox.
+   Parameters - mail_box *mbox: pointer to the mailbox.
+   Returns - None.
+   Side Effects - Allocates memory for and initializes the waiting list of the mailbox.
+   ----------------------------------------------------------------------- */
 // Initialize mailbox's waiting list
 void WaitingListInit(mail_box *mbox)
 {
@@ -1088,6 +1181,15 @@ void WaitingListInit(mail_box *mbox)
 
 /* HANDLER FUNCTIONS */
 
+/* ------------------------------------------------------------------------
+   Name - clock_handler2
+   Purpose - Handles clock interrupts, sends a message to the clock mailbox 
+             every 5th interrupt.
+   Parameters - int dev: device number (unused).
+                void *pUnit: pointer to unit number (unused).
+   Returns - None.
+   Side Effects - Sends a message to the clock mailbox every 5th clock interrupt.
+   ----------------------------------------------------------------------- */
 // Clock handler
 void clock_handler2(int dev, void *pUnit)
 {
@@ -1109,6 +1211,15 @@ void clock_handler2(int dev, void *pUnit)
    time_slice();
 }
 
+/* ------------------------------------------------------------------------
+   Name - disk_handler
+   Purpose - Handles disk interrupts, reads the disk status register and sends 
+             it to the disk mailbox.
+   Parameters - int dev: device number.
+                void *punit: pointer to unit number.
+   Returns - None.
+   Side Effects - Reads the disk status register and sends it to the disk mailbox.
+   ----------------------------------------------------------------------- */
 // Disk handler
 void disk_handler(int dev, void *punit)
 {
@@ -1132,6 +1243,15 @@ void disk_handler(int dev, void *punit)
    result = MboxCondSend(disk_mbox[unit], &status, sizeof(status));  // Need to implement disk_mbox
 }
 
+/* ------------------------------------------------------------------------
+   Name - term_handler
+   Purpose - Handles terminal interrupts, reads the terminal status register and sends 
+             it to the terminal mailbox.
+   Parameters - int dev: device number.
+                void *punit: pointer to unit number.
+   Returns - None.
+   Side Effects - Reads the terminal status register and sends it to the terminal mailbox.
+   ----------------------------------------------------------------------- */
 // Terminal handler
 void term_handler(int dev, void *punit)
 {
@@ -1155,6 +1275,16 @@ void term_handler(int dev, void *punit)
    result = MboxCondSend(term_mbox[unit], &status, sizeof(status));  // Need to implement term_mbox
 }
 
+/* ------------------------------------------------------------------------
+   Name - sys_handler
+   Purpose - Handles system call interrupts, calls the appropriate system call 
+             handler based on the syscall number.
+   Parameters - int dev: device number (unused).
+                void *unit: pointer to the sysargs struct containing syscall information.
+   Returns - None.
+   Side Effects - Executes the appropriate system call handler.
+   ----------------------------------------------------------------------- */
+
 // Syscall Handler
 void sys_handler(int dev, void *punit) {
    check_kernel_mode("sys_handler");
@@ -1177,6 +1307,13 @@ void sys_handler(int dev, void *punit) {
    }
 }
 
+/* ------------------------------------------------------------------------
+   Name - nullsys
+   Purpose - Default system call handler for invalid syscalls. Halts USLOSS.
+   Parameters - sysargs *args: pointer to the sysargs struct containing syscall information.
+   Returns - None.
+   Side Effects - Prints an error message and halts USLOSS.
+   ----------------------------------------------------------------------- */
 // nullsys for system call handler
 static void nullsys(sysargs *args)
 {
@@ -1190,6 +1327,15 @@ static void nullsys(sysargs *args)
    halt(1);
 } /* nullsys */
 
+/* ------------------------------------------------------------------------
+   Name - waitdevice
+   Purpose - Waits for a device of a certain type and unit to complete an operation.
+   Parameters - int type: the type of the device.
+                int unit: the unit number of the device.
+                int *status: pointer to store the status of the operation.
+   Returns - 0 if successful, -1 if the process is zapped while waiting.
+   Side Effects - Blocks the calling process until the device operation completes.
+   ----------------------------------------------------------------------- */
 // Waitdevice
 int waitdevice(int type, int unit, int *status)
 {
@@ -1233,6 +1379,14 @@ int waitdevice(int type, int unit, int *status)
    }
 } /* Waitdevice */
 
+/* ------------------------------------------------------------------------
+   Name - CleanSlot
+   Purpose - Cleans a slot in a mailbox, marking it as empty and available for reuse.
+   Parameters - slot_ptr slot: pointer to the slot to clean.
+                mail_box *mbox: pointer to the mailbox containing the slot.
+   Returns - None.
+   Side Effects - Resets the slot's status and clears its message buffer.
+   ----------------------------------------------------------------------- */
 void CleanSlot(slot_ptr slot, mail_box *mbox)
 {
    // Clean the slot's message buffer
@@ -1343,6 +1497,14 @@ void CleanSlot(slot_ptr slot, mail_box *mbox)
    }
 }
 
+/* ------------------------------------------------------------------------
+   Name - CleanWaitingProc
+   Purpose - Cleans up a waiting process entry from a mailbox's waiting list.
+   Parameters - waiting_proc_ptr waiting_proc: pointer to the waiting process entry.
+                mail_box *mbox: pointer to the mailbox.
+   Returns - None.
+   Side Effects - Removes the waiting process from the mailbox's waiting list and resets its status.
+   ----------------------------------------------------------------------- */
 void CleanWaitingProc(waiting_proc_ptr waiting_proc, mail_box *mbox)
 {
    // Clean the waiting process's message buffer
