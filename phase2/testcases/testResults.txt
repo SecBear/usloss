@@ -1,1312 +1,639 @@
 starting test 00 ....
 
-start2(): started
+start3(): started.  Calling Spawn for Child1
+start3(): fork 5
+Child1(): starting
+Child1(): done
+start3(): result of wait, pid = 5, status = 9
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 01 ....
 
-start2(): started
-start2(): MailBoxCreate returned id = 7
-start2(): MailBoxCreate returned id = 8
+start3(): started.  Calling Spawn for Child1
+Child1(): starting
+Child1(): done
+start3(): after spawn of 5
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 02 ....
 
-start2(): started, trying to create too many mailboxes...
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
+start3(): started, and immediately return'ing a -3
 All processes completed.
 
 starting test 03 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-start2(): after send of message, result = 0
-start2(): attempting to receive message from mailbox 7
-start2(): after receive of message, result = 12
-          message is `hello there'
+start3(): started.  Calling Spawn for Child1
+Child1(): starting
+Child2(): starting
+Child2(): done
+Child1(): done
+start3(): after spawn of 5
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 04 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message to mailbox 7
-XXp1(): after send of message, result = 0
-start2(): joined with kid 4, status = -3
-XXp2(): started
-XXp2(): receiving message from mailbox 7
-XXp2(): after receipt of message, result = 12
-        message = `hello there'
-start2(): joined with kid 5, status = -4
+start3(): started.  Calling SemCreate
+start3(): sem_result = 0, semaphore = 0
+start3(): sem_result = 0, semaphore = 1
 All processes completed.
 
 starting test 05 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2(): started
-XXp2(): receiving message from mailbox 7
-XXp1(): started
-XXp1(): sending message to mailbox 7
-XXp2(): after receipt of message, result = 12
-        message = `hello there'
-start2(): joined with kid 5, status = -4
-XXp1(): after send of message, result = 0
-start2(): joined with kid 4, status = -3
+start3(): started.  Calling SemCreate
+i =   0, sem_result =  0
+i =   1, sem_result =  0
+i =   2, sem_result =  0
+i =   3, sem_result =  0
+i =   4, sem_result =  0
+i =   5, sem_result =  0
+i =   6, sem_result =  0
+i =   7, sem_result =  0
+i =   8, sem_result =  0
+i =   9, sem_result =  0
+i =  10, sem_result =  0
+i =  11, sem_result =  0
+i =  12, sem_result =  0
+i =  13, sem_result =  0
+i =  14, sem_result =  0
+i =  15, sem_result =  0
+i =  16, sem_result =  0
+i =  17, sem_result =  0
+i =  18, sem_result =  0
+i =  19, sem_result =  0
+i =  20, sem_result =  0
+i =  21, sem_result =  0
+i =  22, sem_result =  0
+i =  23, sem_result =  0
+i =  24, sem_result =  0
+i =  25, sem_result =  0
+i =  26, sem_result =  0
+i =  27, sem_result =  0
+i =  28, sem_result =  0
+i =  29, sem_result =  0
+i =  30, sem_result =  0
+i =  31, sem_result =  0
+i =  32, sem_result =  0
+i =  33, sem_result =  0
+i =  34, sem_result =  0
+i =  35, sem_result =  0
+i =  36, sem_result =  0
+i =  37, sem_result =  0
+i =  38, sem_result =  0
+i =  39, sem_result =  0
+i =  40, sem_result =  0
+i =  41, sem_result =  0
+i =  42, sem_result =  0
+i =  43, sem_result =  0
+i =  44, sem_result =  0
+i =  45, sem_result =  0
+i =  46, sem_result =  0
+i =  47, sem_result =  0
+i =  48, sem_result =  0
+i =  49, sem_result =  0
+i =  50, sem_result =  0
+i =  51, sem_result =  0
+i =  52, sem_result =  0
+i =  53, sem_result =  0
+i =  54, sem_result =  0
+i =  55, sem_result =  0
+i =  56, sem_result =  0
+i =  57, sem_result =  0
+i =  58, sem_result =  0
+i =  59, sem_result =  0
+i =  60, sem_result =  0
+i =  61, sem_result =  0
+i =  62, sem_result =  0
+i =  63, sem_result =  0
+i =  64, sem_result =  0
+i =  65, sem_result =  0
+i =  66, sem_result =  0
+i =  67, sem_result =  0
+i =  68, sem_result =  0
+i =  69, sem_result =  0
+i =  70, sem_result =  0
+i =  71, sem_result =  0
+i =  72, sem_result =  0
+i =  73, sem_result =  0
+i =  74, sem_result =  0
+i =  75, sem_result =  0
+i =  76, sem_result =  0
+i =  77, sem_result =  0
+i =  78, sem_result =  0
+i =  79, sem_result =  0
+i =  80, sem_result =  0
+i =  81, sem_result =  0
+i =  82, sem_result =  0
+i =  83, sem_result =  0
+i =  84, sem_result =  0
+i =  85, sem_result =  0
+i =  86, sem_result =  0
+i =  87, sem_result =  0
+i =  88, sem_result =  0
+i =  89, sem_result =  0
+i =  90, sem_result =  0
+i =  91, sem_result =  0
+i =  92, sem_result =  0
+i =  93, sem_result =  0
+i =  94, sem_result =  0
+i =  95, sem_result =  0
+i =  96, sem_result =  0
+i =  97, sem_result =  0
+i =  98, sem_result =  0
+i =  99, sem_result =  0
+i = 100, sem_result =  0
+i = 101, sem_result =  0
+i = 102, sem_result =  0
+i = 103, sem_result =  0
+i = 104, sem_result =  0
+i = 105, sem_result =  0
+i = 106, sem_result =  0
+i = 107, sem_result =  0
+i = 108, sem_result =  0
+i = 109, sem_result =  0
+i = 110, sem_result =  0
+i = 111, sem_result =  0
+i = 112, sem_result =  0
+i = 113, sem_result =  0
+i = 114, sem_result =  0
+i = 115, sem_result =  0
+i = 116, sem_result =  0
+i = 117, sem_result =  0
+i = 118, sem_result =  0
+i = 119, sem_result =  0
+i = 120, sem_result =  0
+i = 121, sem_result =  0
+i = 122, sem_result =  0
+i = 123, sem_result =  0
+i = 124, sem_result =  0
+i = 125, sem_result =  0
+i = 126, sem_result =  0
+i = 127, sem_result =  0
+i = 128, sem_result =  0
+i = 129, sem_result =  0
+i = 130, sem_result =  0
+i = 131, sem_result =  0
+i = 132, sem_result =  0
+i = 133, sem_result =  0
+i = 134, sem_result =  0
+i = 135, sem_result =  0
+i = 136, sem_result =  0
+i = 137, sem_result =  0
+i = 138, sem_result =  0
+i = 139, sem_result =  0
+i = 140, sem_result =  0
+i = 141, sem_result =  0
+i = 142, sem_result =  0
+i = 143, sem_result =  0
+i = 144, sem_result =  0
+i = 145, sem_result =  0
+i = 146, sem_result =  0
+i = 147, sem_result =  0
+i = 148, sem_result =  0
+i = 149, sem_result =  0
+i = 150, sem_result =  0
+i = 151, sem_result =  0
+i = 152, sem_result =  0
+i = 153, sem_result =  0
+i = 154, sem_result =  0
+i = 155, sem_result =  0
+i = 156, sem_result =  0
+i = 157, sem_result =  0
+i = 158, sem_result =  0
+i = 159, sem_result =  0
+i = 160, sem_result =  0
+i = 161, sem_result =  0
+i = 162, sem_result =  0
+i = 163, sem_result =  0
+i = 164, sem_result =  0
+i = 165, sem_result =  0
+i = 166, sem_result =  0
+i = 167, sem_result =  0
+i = 168, sem_result =  0
+i = 169, sem_result =  0
+i = 170, sem_result =  0
+i = 171, sem_result =  0
+i = 172, sem_result =  0
+i = 173, sem_result =  0
+i = 174, sem_result =  0
+i = 175, sem_result =  0
+i = 176, sem_result =  0
+i = 177, sem_result =  0
+i = 178, sem_result =  0
+i = 179, sem_result =  0
+i = 180, sem_result =  0
+i = 181, sem_result =  0
+i = 182, sem_result =  0
+i = 183, sem_result =  0
+i = 184, sem_result =  0
+i = 185, sem_result =  0
+i = 186, sem_result =  0
+i = 187, sem_result =  0
+i = 188, sem_result =  0
+i = 189, sem_result =  0
+i = 190, sem_result =  0
+i = 191, sem_result =  0
+i = 192, sem_result =  0
+i = 193, sem_result =  0
+i = 194, sem_result =  0
+i = 195, sem_result =  0
+i = 196, sem_result =  0
+i = 197, sem_result =  0
+i = 198, sem_result =  0
+i = 199, sem_result =  0
+i = 200, sem_result = -1
+i = 201, sem_result = -1
 All processes completed.
 
 starting test 06 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = 0
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = 0
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = 0
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = 0
-XXp1(): sending message #5 to mailbox 7
-XXp2(): started
-XXp2(): receiving message #0 from mailbox 7
-XXp1(): after send of message #5, result = 0
-start2(): joined with kid 4, status = -3
-XXp2(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp2(): receiving message #1 from mailbox 7
-XXp2(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-XXp2(): receiving message #2 from mailbox 7
-XXp2(): after receipt of message #2, result = 16
-        message = `hello there, #2'
-XXp2(): receiving message #3 from mailbox 7
-XXp2(): after receipt of message #3, result = 16
-        message = `hello there, #3'
-XXp2(): receiving message #4 from mailbox 7
-XXp2(): after receipt of message #4, result = 16
-        message = `hello there, #4'
-XXp2(): receiving message #5 from mailbox 7
-XXp2(): after receipt of message #5, result = 16
-        message = `hello there, #5'
-start2(): joined with kid 5, status = -4
+start3(): started.  Creating semaphore.
+start3(): calling Spawn for Child1
+Child1(): starting, P'ing semaphore
+start3(): after spawn of 5
+start3(): calling Spawn for Child2
+Child2(): starting, V'ing semaphore
+Child2(): done
+Child1(): done
+start3(): after spawn of 6
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 07 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = 0
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = 0
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = 0
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = 0
-start2(): joined with kid 4, status = -3
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp3(): started
-XXp3(): receiving message #0 from mailbox 7
-XXp2a(): after send of message 'hello from XXp2a', result = 0
-start2(): joined with kid 5, status = -3
-XXp3(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp3(): receiving message #1 from mailbox 7
-XXp2b(): after send of message 'hello from XXp2b', result = 0
-start2(): joined with kid 6, status = -3
-XXp3(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-XXp3(): receiving message #2 from mailbox 7
-XXp2c(): after send of message 'hello from XXp2c', result = 0
-start2(): joined with kid 7, status = -3
-XXp3(): after receipt of message #2, result = 16
-        message = `hello there, #2'
-XXp3(): receiving message #3 from mailbox 7
-XXp3(): after receipt of message #3, result = 16
-        message = `hello there, #3'
-XXp3(): receiving message #4 from mailbox 7
-XXp3(): after receipt of message #4, result = 16
-        message = `hello there, #4'
-XXp3(): receiving message #5 from mailbox 7
-XXp3(): after receipt of message #5, result = 17
-        message = `hello from XXp2a'
-XXp3(): receiving message #6 from mailbox 7
-XXp3(): after receipt of message #6, result = 17
-        message = `hello from XXp2b'
-XXp3(): receiving message #7 from mailbox 7
-XXp3(): after receipt of message #7, result = 17
-        message = `hello from XXp2c'
-start2(): joined with kid 8, status = -4
+start3(): started.  Creating semaphore.
+start3(): calling Spawn for Child1
+Child1a(): starting, P'ing semaphore
+Child1b(): starting, P'ing semaphore
+Child1c(): starting, P'ing semaphore
+start3(): after spawn of 7
+start3(): calling Spawn for Child2
+Child2(): 8 starting, V'ing semaphore
+Child2(): done
+Child1a(): done
+Child1b(): done
+Child1c(): done
+start3(): after spawn of 8
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 08 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = 0
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = 0
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = 0
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = 0
-start2(): joined with kid 4, status = -3
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp3(): started
-XXp2a(): after send of message 'hello from XXp2a', result = -3
-XXp2a(): zap'd by MboxSend() call
-start2(): joined with kid 5, status = -3
-XXp2b(): after send of message 'hello from XXp2b', result = -3
-XXp2b(): zap'd by MboxSend() call
-start2(): joined with kid 6, status = -3
-XXp2c(): after send of message 'hello from XXp2c', result = -3
-XXp2c(): zap'd by MboxSend() call
-start2(): joined with kid 7, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
+start3(): started.  Calling SemCreate
+start3(): freeing one semaphore
+start3(): Correct result from last call to SemCreate()
 All processes completed.
 
 starting test 09 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = 0
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = 0
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = 0
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = 0
-start2(): joined with kid 4, status = -3
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp4(): started and quitting
-XXp3(): started
-XXp2a(): after send of message 'hello from XXp2a', result = -3
-XXp2a(): zap'd by MboxSend() call
-start2(): joined with kid 5, status = -3
-XXp2b(): after send of message 'hello from XXp2b', result = -3
-XXp2b(): zap'd by MboxSend() call
-start2(): joined with kid 6, status = -3
-XXp2c(): after send of message 'hello from XXp2c', result = -3
-XXp2c(): zap'd by MboxSend() call
-start2(): joined with kid 7, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 9, status = -4
+start3(): started.  Creating semaphore.
+start3(): calling Spawn for Child1a
+Child1a(): starting, P'ing semaphore
+start3(): calling Spawn for Child1b
+Child1b(): starting, P'ing semaphore
+start3(): calling Spawn for Child1c
+Child1c(): starting, P'ing semaphore
+start3(): calling Spawn for Child2
+Child2(): starting, free'ing semaphore
+Child2(): done
+start3(): after spawn of Child2
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 10 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = 0
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = 0
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = 0
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = 0
-start2(): joined with kid 4, status = -3
-XXp2a(): conditionally sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2a(): after conditional send of message 'hello from XXp2a', result = -2
-start2(): joined with kid 5, status = -3
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): conditionally sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp2c(): after conditional send of message 'hello from XXp2c', result = -2
-start2(): joined with kid 7, status = -3
-XXp3(): started
-XXp3(): receiving message #0 from mailbox 7
-XXp2b(): after send of message 'hello from XXp2b', result = 0
-start2(): joined with kid 6, status = -3
-XXp3(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp3(): receiving message #1 from mailbox 7
-XXp3(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-XXp3(): receiving message #2 from mailbox 7
-XXp3(): after receipt of message #2, result = 16
-        message = `hello there, #2'
-XXp3(): receiving message #3 from mailbox 7
-XXp3(): after receipt of message #3, result = 16
-        message = `hello there, #3'
-XXp3(): receiving message #4 from mailbox 7
-XXp3(): after receipt of message #4, result = 16
-        message = `hello there, #4'
-XXp3(): receiving message #5 from mailbox 7
-XXp3(): after receipt of message #5, result = 17
-        message = `hello from XXp2b'
-start2(): joined with kid 8, status = -4
+start3(): started
+start3(): calling Spawn for Child1a
+Child1a(): starting
+Child1a(): current time = 1074
+Child1a(): current time = 1081
+Child1a(): current time = 1086
+Child1a(): done
+start3(): calling Spawn for Child1b
+Child1b(): starting
+Child1b(): current time = 1146
+Child1b(): current time = 1151
+Child1b(): current time = 1156
+Child1b(): done
+start3(): calling Spawn for Child1c
+Child1c(): starting
+Child1c(): current time = 1215
+Child1c(): current time = 1220
+Child1c(): current time = 1225
+Child1c(): done
+start3(): calling Spawn for Child2
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 11 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): MboxCreate returned id = 8
-XXp1(): started
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = 0
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = 0
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = 0
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = 0
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = 0
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-XXp3(): started
-XXp3(): receiving message #0 from mailbox 7
-XXp3(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp3(): receiving message #1 from mailbox 7
-XXp3(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-XXp3(): receiving message #2 from mailbox 7
-XXp3(): after receipt of message #2, result = 16
-        message = `hello there, #2'
-XXp3(): receiving message #3 from mailbox 7
-XXp3(): after receipt of message #3, result = 16
-        message = `hello there, #3'
-XXp3(): receiving message #4 from mailbox 7
-XXp3(): after receipt of message #4, result = 16
-        message = `hello there, #4'
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = 0
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = 0
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = 0
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = 0
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = 0
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-start2(): joined with kid 4, status = -3
-XXp3(): receiving message #0 from mailbox 7
-XXp3(): after receipt of message #0, result = 13
-        message = `good-bye, #0'
-XXp3(): receiving message #1 from mailbox 7
-XXp3(): after receipt of message #1, result = 13
-        message = `good-bye, #1'
-XXp3(): receiving message #2 from mailbox 7
-XXp3(): after receipt of message #2, result = 13
-        message = `good-bye, #2'
-XXp3(): receiving message #3 from mailbox 7
-XXp3(): after receipt of message #3, result = 13
-        message = `good-bye, #3'
-XXp3(): receiving message #4 from mailbox 7
-XXp3(): after receipt of message #4, result = 13
-        message = `good-bye, #4'
-start2(): joined with kid 5, status = -4
+start3(): started
+start3(): calling Spawn for Child1a
+Child1a(): starting
+Child1a(): current time = 27
+Child1a(): current time = 35
+Child1a(): current time = 41
+Child1a(): done
+start3(): calling Spawn for Child1b
+Child1b(): starting
+Child1b(): current time = 22
+Child1b(): current time = 28
+Child1b(): current time = 33
+Child1b(): done
+start3(): calling Spawn for Child1c
+Child1c(): starting
+Child1c(): current time = 23
+Child1c(): current time = 29
+Child1c(): current time = 35
+Child1c(): done
+start3(): calling Spawn for Child2
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 12 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): MboxCreate returned id = 8
-XXp1(): started
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = 0
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = 0
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = 0
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = 0
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = 0
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-XXp3(): started
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #0'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #1'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #2'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #3'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #4'
-XXp3(): After loop, result is negative; result = -2
-XXp3(): received 5 hello messages from mailbox 7
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = 0
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = 0
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = 0
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = 0
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = 0
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-start2(): joined with kid 4, status = -3
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `good-bye, #0', result = 13
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `good-bye, #1', result = 13
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `good-bye, #2', result = 13
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `good-bye, #3', result = 13
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `good-bye, #4', result = 13
-XXp3(): After loop, result is negative; result = -2
-XXp3(): received 5 good-bye messages from mailbox 7
-start2(): joined with kid 5, status = -4
+start3(): started
+start3(): calling Spawn for Child1a
+Child1a(): starting
+Child1a(): current time of day = 1345
+Child1a(): current CPU time = 53
+Child1a(): current time of day = 1365
+Child1a(): current CPU time = 69
+Child1a(): current time of day = 1380
+Child1a(): current CPU time = 84
+Child1a(): done
+start3(): calling Spawn for Child1b
+Child1b(): starting
+Child1b(): current time of day = 1482
+Child1b(): current CPU time = 39
+Child1b(): current time of day = 1496
+Child1b(): current CPU time = 54
+Child1b(): current time of day = 1510
+Child1b(): current CPU time = 255
+Child1b(): done
+start3(): calling Spawn for Child1c
+Child1c(): starting
+Child1c(): current time of day = 1817
+Child1c(): current CPU time = 42
+Child1c(): current time of day = 1833
+Child1c(): current CPU time = 58
+Child1c(): current time of day = 1848
+Child1c(): current CPU time = 72
+Child1c(): done
+start3(): calling Spawn for Child2
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 13 ....
 
-start2(): at beginning, pid = 3
-start2(): fork'd child 4
-XXp1(): started, calling waitdevice for clock
-XXp1(): after waitdevice call
-XXp1(): status = 0
-start2(): joined with kid 4, status = -3
+start3(): started
+start3(): calling Spawn for Child1a
+Child1a(): starting
+Child1a(): pid = 5
+Child1a(): done
+start3(): calling Spawn for Child1b
+Child1b(): starting
+Child1b(): pid = 6
+Child1b(): done
+start3(): calling Spawn for Child1c
+Child1c(): starting
+Child1c(): pid = 7
+Child1c(): done
+start3(): calling Spawn for Child2
+start3(): Parent done. Calling Terminate.
 All processes completed.
 
 starting test 14 ....
 
-start2(): started
-start2(): calling device_output to enable receive interrupts, control = 2
-XXp1(): started, calling waitdevice for terminal 1
-XXp1(): after waitdevice call
-XXp1(): status = 18433
-XXp1(): receive status for terminal 1 = 1
-XXp1(): character received = H
-start2(): joined with kid 4, status = -3
+start3(): started
+start3(): fork 5
+Child1(): starting
+start3(): Done.
 All processes completed.
 
 starting test 15 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-start2(): after send of message, result = -1
-message too big
+Child1(): started
+start3(): Done.
 All processes completed.
 
 starting test 16 ....
 
-start2(): started, trying to exceed mailslots...
-finally the slots are over at mailbox 45 and slot 25
+start3(): started
+start3(): After P in the CS
+Child1(): starting
+start3(): fork 5
+Child2(): starting
+start3(): fork 6
+start3(): After SemFree with processes blocked
+start3(): status of quit child = 1
+start3(): status of quit child = 1
+start3(): Parent done
 All processes completed.
 
 starting test 17 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp4(): started and quitting
-XXp3(): started
-XXp2a(): after send of message 'hello from XXp2a', result = -3
-XXp2a(): zap'd by MboxSend() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after send of message 'hello from XXp2b', result = -3
-XXp2b(): zap'd by MboxSend() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after send of message 'hello from XXp2c', result = -3
-XXp2c(): zap'd by MboxSend() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
+start3(): started
+start3(): spawned process 5
+Child1() starting
+Child1(): spawned process 6
+Child2(): starting
+Child1(): child 6 returned status of 9
+Child1(): spawned process 7
+Child3(): starting
+Child1(): child 7 returned status of 10
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 18 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp4(): started and quitting
-XXp3(): started
-XXp2a(): after recv of message '', result = -3
-XXp2a(): zap'd by MboxReceive() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after recv of message '', result = -3
-XXp2b(): zap'd by MboxReceive() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after recv of message '', result = -3
-XXp2c(): zap'd by MboxReceive() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): bet, pid = 6
+Child2(): spawned process 7
+Child2(): spawned process 8
+Child2(): spawned process 9
+Child1(): spawned process 6
+Child1(): child 6 returned status of 10
+Child1(): spawned process 10
+Child3(): starting
+Child1(): child 10 returned status of 11
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 19 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp4(): started and quitting
-XXp3(): started
-XXp2a(): after send of message 'hello from XXp2a', result = -3
-XXp2a(): zap'd by MboxSend() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after send of message 'hello from XXp2b', result = -3
-XXp2b(): zap'd by MboxSend() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after send of message 'hello from XXp2c', result = -3
-XXp2c(): zap'd by MboxSend() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
-failed to send to released mailbox ... success
+start3(): started
+start3(): elapsed time = 77
 All processes completed.
 
 starting test 20 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2a(): receiving message from mailbox 7, msg_size = 1
-XXp2b(): receiving message from mailbox 7, msg_size = 1
-XXp2c(): receiving message from mailbox 7, msg_size = 1
-XXp4(): started and quitting
-XXp3(): started
-XXp2a(): after receive of message, result = -3
-XXp2a(): zap'd by MboxReceive() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after receive of message, result = -3
-XXp2b(): zap'd by MboxReceive() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after receive of message, result = -3
-XXp2c(): zap'd by MboxReceive() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
-failed to recv from released mailbox ... success
+start3(): started
+start3(): After P in the CS
+Child1(): starting
+Child1(): After P attempt #0
+Child1(): After P attempt #1
+start3(): spawn 5
+start3(): spawn 6
+Child1(): After P attempt #2
+Child2(): starting
+Child1(): After P attempt #3 -- may appear before: start3(): After V
+start3(): After V -- may appear before: Child1(): After P attempt #3
+Child2(): After V attempt #0
+Child1(): After P attempt #4
+Child1(): done
+Child2(): After V attempt #1
+Child2(): After V attempt #2
+Child2(): After V attempt #3
+Child2(): After V attempt #4
+Child2(): done
+start3(): status of quit child = 9
+start3(): status of quit child = 10
+start3(): Parent done
 All processes completed.
 
 starting test 21 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp2(): started
-XXp2(): receiving message #0 from mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp2(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp2(): receiving message #1 from mailbox 7
-XXp1(): after send of message #1, result = 0
-start2(): joined with kid 4, status = -3
-XXp2(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-start2(): joined with kid 5, status = -4
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): starting, pid = 6
+Child2(): spawned process 7
+Child2(): spawned process 8
+Child2(): spawned process 9
+Child1(): spawned process 6
+Child2a(): starting the code for Child2a
+Child2(): Wait result for child 7 has status 11
+Child2b(): starting the code for Child2b
+Child2(): Wait result for child 8 has status 11
+Child2c(): starting the code for Child2c
+Child2(): Wait result for child 9 has status 11
+Child1(): child 6 returned status of 10
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 22 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2(): started
-XXp2(): receiving message #0 from mailbox 7
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp2(): after receipt of message #0, result = 16
-        message = `hello there, #0'
-XXp2(): receiving message #1 from mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #1 to mailbox 7
-XXp2(): after receipt of message #1, result = 16
-        message = `hello there, #1'
-start2(): joined with kid 5, status = -4
-XXp1(): after send of message #1, result = 0
-start2(): joined with kid 4, status = -3
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): starting, pid = 6
+Child2(): spawned process 7
+Child2(): terminating
+Child1(): spawned process 6
+Child1(): child 6 returned status of 10
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 23 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp3(): started
-XXp3(): fork'ing XXp2 at priority 4
-XXp2(): started
-XXp2(): priority 4, receiving message from mailbox 7
-XXp3(): fork'ing XXp2 at priority 2
-XXp2(): started
-XXp2(): priority 2, receiving message from mailbox 7
-XXp3(): fork'ing XXp2 at priority 2
-XXp2(): started
-XXp2(): priority 2, receiving message from mailbox 7
-XXp3(): fork'ing XXp1 at priority 1
-XXp1(): started
-XXp1(): sending message #1 to mailbox 7
-XXp1(): sending message #2 to mailbox 7
-XXp1(): sending message #3 to mailbox 7
-XXp2(): priority 2, after receipt of message, result = 15
-        message = `Second message'
-XXp2(): priority 2, after receipt of message, result = 14
-        message = `Third message'
-XXp2(): priority 4, after receipt of message, result = 14
-        message = `First message'
-XXp3(): join'd with child 8 whose status is -1
-XXp3(): join'd with child 6 whose status is -2
-XXp3(): join'd with child 7 whose status is -2
-XXp3(): join'd with child 5 whose status is -4
-start2(): joined with kid 4, status = -5
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): starting, pid = 6
+Child2(): spawned process 7
+Child2(): spawned process 8
+Child2(): terminating
+Child1(): spawned process 6
+Child1(): child 6 returned status of 10
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 24 ....
 
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp3(): started, about to send 5 messages to the mailbox
-XXp3(): sending message #1 to mailbox 7
-XXp3(): sending message #2 to mailbox 7
-XXp3(): sending message #3 to mailbox 7
-XXp3(): sending message #4 to mailbox 7
-XXp3(): sending message #5 to mailbox 7
-XXp3(): fork'ing XXp2 at priority 4
-XXp2(): started
-XXp2(): priority 4, sending message to mailbox 7
-XXp3(): fork'ing XXp2 at priority 3
-XXp2(): started
-XXp2(): priority 3, sending message to mailbox 7
-XXp3(): fork'ing XXp2 at priority 2
-XXp2(): started
-XXp2(): priority 2, sending message to mailbox 7
-XXp3(): fork'ing XXp1 at priority 1
-XXp1(): started
-XXp1(): received message #1 containing: First message
-XXp1(): received message #2 containing: Second message
-XXp1(): received message #3 containing: Third message
-XXp1(): received message #4 containing: Fourth message
-XXp1(): received message #5 containing: Fifth message
-XXp1(): received message #6 containing: Sixth message
-XXp1(): received message #7 containing: Seventh message
-XXp1(): received message #8 containing: Eighth message
-XXp2(): priority 2, after sending message, result = 0
-XXp2(): priority 3, after sending message, result = 0
-XXp2(): priority 4, after sending message, result = 0
-XXp3(): join'd with child 8 whose status is -1
-XXp3(): join'd with child 7 whose status is -2
-XXp3(): join'd with child 6 whose status is -3
-XXp3(): join'd with child 5 whose status is -4
-start2(): joined with kid 4, status = -5
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): starting, pid = 6
+Child2(): spawned process 7
+Child2(): spawned process 8
+Child2(): spawned process 9
+Child1(): spawned process 6
+Child1(): child 6 returned status of 10
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 
 starting test 25 ....
 
-start2(): started, trying to create too many mailboxes...
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): calling MboxRelease(0)
-start2(): calling MboxRelease(0) returned 0
-start2(): calling MboxRelease(1)
-start2(): calling MboxRelease(1) returned 0
-start2(): calling MboxRelease(2)
-start2(): calling MboxRelease(2) returned 0
-start2(): calling MboxRelease(3)
-start2(): calling MboxRelease(3) returned 0
-start2(): calling MboxRelease(4)
-start2(): calling MboxRelease(4) returned 0
-start2(): calling MboxRelease(5)
-start2(): calling MboxRelease(5) returned 0
-start2(): MailBoxCreate returned id = 6010
-start2(): MailBoxCreate returned id = 6011
-start2(): MailBoxCreate returned id = 6012
-start2(): MailBoxCreate returned id = 6013
-start2(): MailBoxCreate returned id = 6014
-start2(): MailBoxCreate returned id = 6015
-start2(): MailBoxCreate returned id less than zero, id = -1
-start2(): MailBoxCreate returned id less than zero, id = -1
-All processes completed.
-
-starting test 26 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp1(): started
-XXp1(): receiving message #0 from mailbox 7
-XXp2a(): receive message from mailbox 7, msg_size = 20
-XXp2c(): receive message from mailbox 7, msg_size = 20
-XXp2b(): receive message from mailbox 7, msg_size = 20
-XXp3(): started
-XXp1(): after receive of message #0, result = -3
-XXp1(): receiving message #1 from mailbox 7
-XXp1(): after receive of message #1, result = -1
-XXp1(): receiving message #2 from mailbox 7
-XXp1(): after receive of message #2, result = -1
-XXp1(): receiving message #3 from mailbox 7
-XXp1(): after receive of message #3, result = -1
-XXp1(): receiving message #4 from mailbox 7
-XXp1(): after receive of message #4, result = -1
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = -1
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = -1
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = -1
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = -1
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = -1
-start2(): joined with kid 4, status = -3
-XXp2a(): after receive of message result = -3
-XXp2a(): zap'd by MboxReceive() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after receive of message result = -3
-XXp2c(): zap'd by MboxReceive() call
-start2(): joined with kid 7, status = -3
-XXp2b(): after receive of message result = -3
-XXp2b(): zap'd by MboxReceive() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 8, status = -4
-All processes completed.
-
-starting test 27 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2c(): receive message from mailbox 7, msg_size = 20
-XXp2b(): receive message from mailbox 7, msg_size = 20
-XXp2a(): receive message from mailbox 7, msg_size = 20
-XXp1(): started
-XXp1(): receiving message #0 from mailbox 7
-XXp4(): started and quitting
-XXp3(): started
-XXp2c(): after receive of message result = -3
-XXp2c(): zap'd by MboxReceive() call
-start2(): joined with kid 7, status = -3
-XXp2b(): after receive of message result = -3
-XXp2b(): zap'd by MboxReceive() call
-start2(): joined with kid 6, status = -3
-XXp2a(): after receive of message result = -3
-XXp2a(): zap'd by MboxReceive() call
-start2(): joined with kid 5, status = -3
-XXp1(): after receive of message #0, result = -3
-XXp1(): receiving message #1 from mailbox 7
-XXp1(): after receive of message #1, result = -1
-XXp1(): receiving message #2 from mailbox 7
-XXp1(): after receive of message #2, result = -1
-XXp1(): receiving message #3 from mailbox 7
-XXp1(): after receive of message #3, result = -1
-XXp1(): receiving message #4 from mailbox 7
-XXp1(): after receive of message #4, result = -1
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = -1
-XXp1(): sending message #1 to mailbox 7
-XXp1(): after send of message #1, result = -1
-XXp1(): sending message #2 to mailbox 7
-XXp1(): after send of message #2, result = -1
-XXp1(): sending message #3 to mailbox 7
-XXp1(): after send of message #3, result = -1
-XXp1(): sending message #4 to mailbox 7
-XXp1(): after send of message #4, result = -1
-start2(): joined with kid 4, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 9, status = -4
-All processes completed.
-
-starting test 28 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2a(): receiving message from mailbox 7, msg_size = 1
-XXp2b(): receiving message from mailbox 7, msg_size = 1
-XXp2c(): receiving message from mailbox 7, msg_size = 1
-XXp3(): started
-XXp2a(): after receive of message, result = -3
-XXp2a(): zap'd by MboxReceive() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after receive of message, result = -3
-XXp2b(): zap'd by MboxReceive() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after receive of message, result = -3
-XXp2c(): zap'd by MboxReceive() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 7, status = -4
-failed to recv from released mailbox ... success
-All processes completed.
-
-starting test 29 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-XXp2a(): sending message 'hello from XXp2a' to mailbox 7, msg_size = 17
-XXp2b(): sending message 'hello from XXp2b' to mailbox 7, msg_size = 17
-XXp2c(): sending message 'hello from XXp2c' to mailbox 7, msg_size = 17
-XXp3(): started
-XXp2a(): after send of message 'hello from XXp2a', result = -3
-XXp2a(): zap'd by MboxSend() call
-start2(): joined with kid 4, status = -3
-XXp2b(): after send of message 'hello from XXp2b', result = -3
-XXp2b(): zap'd by MboxSend() call
-start2(): joined with kid 5, status = -3
-XXp2c(): after send of message 'hello from XXp2c', result = -3
-XXp2c(): zap'd by MboxSend() call
-start2(): joined with kid 6, status = -3
-XXp3(): MboxRelease returned 0
-start2(): joined with kid 7, status = -4
-failed to send to released mailbox ... success
-All processes completed.
-
-starting test 30 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-start2(): after send of message, result = 0
-XXp3(): sending message to mailbox 7
-XXp2(): sending message to mailbox 7
-XXp1(): sending message to mailbox 7
-XXp4(): Releasing MailBox 7
-XXp3(): after send of message, result = -3
-XXp2(): after send of message, result = -3
-XXp1(): after send of message, result = -3
-XXp4(): after release of mailbox, result = 0
-All processes completed.
-
-starting test 31 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-XXp3(): receiving message from mailbox 7, should block
-XXp2(): receiving message from mailbox 7 should block
-XXp1(): receiving message to mailbox 7 should block
-XXp4(): Releasing Mailbox 7
-XXp3(): after send of message, result = -3
-XXp2(): after send of message, result = -3
-XXp1(): after send of message, result = -3
-XXp4(): after release of mailbox, result = 0
-start2(): after send of message, result = -3
-All processes completed.
-
-starting test 32 ....
-
-start2(): started
-start2(): calling device_output to enable receive interrupts, control = 2
-XXp0(): started, calling waitdevice for terminal 0
-XXp1(): started, calling waitdevice for terminal 1
-XXp2(): started, calling waitdevice for terminal 2
-XXp3(): started, calling waitdevice for terminal 3
-XXp0(): after waitdevice call
-XXp0(): status = 18433
-XXp0(): receive status for terminal 0 = 1
-XXp0(): character received = H
-start2(): joined with kid 4, status = -3
-
-XXp1(): after waitdevice call
-XXp1(): status = 18433
-XXp1(): receive status for terminal 1 = 1
-XXp1(): character received = H
-start2(): joined with kid 5, status = -3
-
-XXp2(): after waitdevice call
-XXp2(): status = 18433
-XXp2(): receive status for terminal 2 = 1
-XXp2(): character received = H
-start2(): joined with kid 6, status = -3
-
-XXp3(): after waitdevice call
-XXp3(): status = 18433
-XXp3(): receive status for terminal 3 = 1
-XXp3(): character received = H
-start2(): joined with kid 7, status = -3
-
-All processes completed.
-
-starting test 33 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-start2(): after send of message, result = 0
-start2(): attempting to receive message from mailbox 7
-start2(): after receive of message, result = 12
-          message is `hello there'
-All processes completed.
-
-starting test 34 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): sending message to mailbox 7
-start2(): after send of message, result = -1
-start2(): message was too large (expected).
-All processes completed.
-
-starting test 35 ....
-
-start2(): started, creating with slot_size too big
-start2(): MailBoxCreate returned id = -1
-start2(): passed...
-start2(): started, creating with slot_size -1
-start2(): MailBoxCreate returned id = -1
-start2(): passed...
-start2(): started, creating with slot_num -1
-start2(): MailBoxCreate returned id = -1
-start2(): passed...
-start2(): started creating with slot_num 2, slot_size 0
-start2(): MailBoxCreate returned id = 7
-start2(): passed...
-start2(): sending message to mailbox 7
-start2(): after send of message, result = 0
-start2(): passed...
-start2(): sending message to mailbox 7
-start2(): after send of message, result = 0
-start2(): passed...
-start2(): attempting to receive message from mailbox 7
-start2(): after receive of message, result = 0
-start2(): passed...
-start2(): attempting to receive message from mailbox 7
-start2(): after receive of message, result = 0
-start2(): passed...
-All processes completed.
-
-starting test 36 ....
-
-start2(): putting itself into user mode
-start2(): calling usyscall executing syscall 0, this should halt
-nullsys(): Invalid syscall 0. Halting...
-
-starting test 37 ....
-
-start2(): putting itself into user mode
-start2(): calling usyscall executing syscall MAXSYSCALLS - 1,
-          this should halt
-nullsys(): Invalid syscall 49. Halting...
-
-starting test 38 ....
-
-start2(): putting itself into user mode
-start2(): calling usyscall executing syscall 0, this should halt
-syscall_handler(): sys number 50 is wrong.  Halting...
-
-starting test 39 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): after send of message, result = 0
-start2(): Attempting to receive message fm mailbox 7.
-          Should fail here because it's receive buffer is
-          too small
-start2(): after receive of message, result = -1
-          message is `'
-start2(): got that message was too big. PASSED!
-All processes completed.
-
-starting test 40 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): Attempting to receive message from mailbox 7
-          But it is blocked because the slots are empty.
-          Then it should fail due to buffer size too small
-XXp1(): started
-XXp1(): arg = `'
-start2(): after receive of message, result = -1
-          message is `'
-start2(): got that message was too big. PASSED!
-start2(): joining with child
-XXp1(): after send of message, result = 0
-All processes completed.
-
-starting test 41 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): MboxCreate returned id = 8
-XXp1(): started
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = 0
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = 0
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = 0
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = 0
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = 0
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-XXp1(): conditionally sending message #0 to mailbox 7
-XXp1(): after conditional send of message #0, result = -2
-XXp1(): conditionally sending message #1 to mailbox 7
-XXp1(): after conditional send of message #1, result = -2
-XXp1(): conditionally sending message #2 to mailbox 7
-XXp1(): after conditional send of message #2, result = -2
-XXp1(): conditionally sending message #3 to mailbox 7
-XXp1(): after conditional send of message #3, result = -2
-XXp1(): conditionally sending message #4 to mailbox 7
-XXp1(): after conditional send of message #4, result = -2
-XXp1(): conditionally sending message #5 to mailbox 7
-XXp1(): after conditional send of message #5, result = -2
-XXp1(): conditionally sending message #6 to mailbox 7
-XXp1(): after conditional send of message #6, result = -2
-XXp1(): conditionally sending message #7 to mailbox 7
-XXp1(): after conditional send of message #7, result = -2
-start2(): joined with kid 4, status = -3
-XXp3(): started
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #0'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #1'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #2'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #3'
-XXp3(): conditionally received message #0 from mailbox 7
-        message = `hello there, #4'
-XXp3(): After loop, result is negative; result = -2
-XXp3(): received 5 hello messages from mailbox 7
-XXp3(): After loop, result is negative; result = -2
-XXp3(): received 0 good-bye messages from mailbox 7
-start2(): joined with kid 5, status = -4
-All processes completed.
-
-starting test 42 ....
-
-start2(): started
-start2(): MboxCreate returned id = 7
-start2(): forking XXp1
-start2(): forking XXp2
-XXp1(): started
-XXp1(): sending message #0 to mailbox 7
-XXp1(): after send of message #0, result = 0
-XXp1(): sending message #500 to mailbox 7
-XXp1(): after send of message #500, result = 0
-XXp1(): sending message #1000 to mailbox 7
-XXp1(): after send of message #1000, result = 0
-XXp1(): sending message #1201 to mailbox 7
-XXp1(): after send of message #1201, result = 0
-XXp1(): sending message #1202 to mailbox 7
-XXp1(): after send of message #1202, result = 0
-XXp1(): sending message #1203 to mailbox 7
-XXp1(): after send of message #1203, result = 0
-XXp1(): sending message #1204 to mailbox 7
-XXp1(): after send of message #1204, result = 0
-XXp1(): sending message #1205 to mailbox 7
-XXp1(): after send of message #1205, result = 0
-XXp1(): sending message #1206 to mailbox 7
-XXp1(): after send of message #1206, result = 0
-XXp1(): sending message #1207 to mailbox 7
-XXp1(): after send of message #1207, result = 0
-XXp1(): sending message #1208 to mailbox 7
-XXp1(): after send of message #1208, result = 0
-XXp1(): sending message #1209 to mailbox 7
-XXp1(): after send of message #1209, result = 0
-XXp1(): sending message #1210 to mailbox 7
-XXp1(): after send of message #1210, result = 0
-XXp1(): sending message #1211 to mailbox 7
-XXp1(): after send of message #1211, result = 0
-XXp1(): sending message #1212 to mailbox 7
-XXp1(): after send of message #1212, result = 0
-XXp1(): sending message #1213 to mailbox 7
-XXp1(): after send of message #1213, result = 0
-XXp1(): sending message #1214 to mailbox 7
-XXp1(): after send of message #1214, result = 0
-XXp1(): sending message #1215 to mailbox 7
-XXp1(): after send of message #1215, result = 0
-XXp1(): sending message #1216 to mailbox 7
-XXp1(): after send of message #1216, result = 0
-XXp1(): sending message #1217 to mailbox 7
-XXp1(): after send of message #1217, result = 0
-XXp1(): sending message #1218 to mailbox 7
-XXp1(): after send of message #1218, result = 0
-XXp1(): sending message #1219 to mailbox 7
-XXp1(): after send of message #1219, result = 0
-XXp1(): sending message #1220 to mailbox 7
-XXp1(): after send of message #1220, result = 0
-XXp1(): sending message #1221 to mailbox 7
-XXp1(): after send of message #1221, result = 0
-XXp1(): sending message #1222 to mailbox 7
-XXp1(): after send of message #1222, result = 0
-XXp1(): sending message #1223 to mailbox 7
-XXp1(): after send of message #1223, result = 0
-XXp1(): sending message #1224 to mailbox 7
-XXp1(): after send of message #1224, result = 0
-XXp1(): sending message #1225 to mailbox 7
-XXp1(): after send of message #1225, result = 0
-XXp1(): sending message #1226 to mailbox 7
-XXp1(): after send of message #1226, result = 0
-XXp1(): sending message #1227 to mailbox 7
-XXp1(): after send of message #1227, result = 0
-XXp1(): sending message #1228 to mailbox 7
-XXp1(): after send of message #1228, result = 0
-XXp1(): sending message #1229 to mailbox 7
-XXp1(): after send of message #1229, result = 0
-XXp1(): sending message #1230 to mailbox 7
-XXp1(): after send of message #1230, result = 0
-XXp1(): sending message #1231 to mailbox 7
-XXp1(): after send of message #1231, result = 0
-XXp1(): sending message #1232 to mailbox 7
-XXp1(): after send of message #1232, result = 0
-XXp1(): sending message #1233 to mailbox 7
-XXp1(): after send of message #1233, result = 0
-XXp1(): sending message #1234 to mailbox 7
-XXp1(): after send of message #1234, result = 0
-XXp1(): sending message #1235 to mailbox 7
-XXp1(): after send of message #1235, result = 0
-XXp1(): sending message #1236 to mailbox 7
-XXp1(): after send of message #1236, result = 0
-XXp1(): sending message #1237 to mailbox 7
-XXp1(): after send of message #1237, result = 0
-XXp1(): sending message #1238 to mailbox 7
-XXp1(): after send of message #1238, result = 0
-XXp1(): sending message #1239 to mailbox 7
-XXp1(): after send of message #1239, result = 0
-XXp1(): sending message #1240 to mailbox 7
-XXp1(): after send of message #1240, result = 0
-XXp1(): sending message #1241 to mailbox 7
-XXp1(): after send of message #1241, result = 0
-XXp1(): sending message #1242 to mailbox 7
-XXp1(): after send of message #1242, result = 0
-XXp1(): sending message #1243 to mailbox 7
-XXp1(): after send of message #1243, result = 0
-XXp1(): sending message #1244 to mailbox 7
-XXp1(): after send of message #1244, result = 0
-XXp1(): sending message #1245 to mailbox 7
-XXp1(): after send of message #1245, result = 0
-XXp1(): sending message #1246 to mailbox 7
-XXp1(): after send of message #1246, result = 0
-XXp1(): sending message #1247 to mailbox 7
-XXp1(): after send of message #1247, result = 0
-XXp1(): sending message #1248 to mailbox 7
-XXp1(): after send of message #1248, result = 0
-XXp1(): sending message #1249 to mailbox 7
-XXp1(): after send of message #1249, result = 0
-start2(): joined with kid 4, status = -3
-XXp2(): started
-XXp2(): sending message #0 to mailbox 7
-XXp2(): after send of message #0, result = 0
-XXp2(): sending message #500 to mailbox 7
-XXp2(): after send of message #500, result = 0
-XXp2(): sending message #1000 to mailbox 7
-XXp2(): after send of message #1000, result = 0
-XXp2(): sending message #1201 to mailbox 7
-XXp2(): after send of message #1201, result = 0
-XXp2(): sending message #1202 to mailbox 7
-XXp2(): after send of message #1202, result = 0
-XXp2(): sending message #1203 to mailbox 7
-XXp2(): after send of message #1203, result = 0
-XXp2(): sending message #1204 to mailbox 7
-XXp2(): after send of message #1204, result = 0
-XXp2(): sending message #1205 to mailbox 7
-XXp2(): after send of message #1205, result = 0
-XXp2(): sending message #1206 to mailbox 7
-XXp2(): after send of message #1206, result = 0
-XXp2(): sending message #1207 to mailbox 7
-XXp2(): after send of message #1207, result = 0
-XXp2(): sending message #1208 to mailbox 7
-XXp2(): after send of message #1208, result = 0
-XXp2(): sending message #1209 to mailbox 7
-XXp2(): after send of message #1209, result = 0
-XXp2(): sending message #1210 to mailbox 7
-XXp2(): after send of message #1210, result = 0
-XXp2(): sending message #1211 to mailbox 7
-XXp2(): after send of message #1211, result = 0
-XXp2(): sending message #1212 to mailbox 7
-XXp2(): after send of message #1212, result = 0
-XXp2(): sending message #1213 to mailbox 7
-XXp2(): after send of message #1213, result = 0
-XXp2(): sending message #1214 to mailbox 7
-XXp2(): after send of message #1214, result = 0
-XXp2(): sending message #1215 to mailbox 7
-XXp2(): after send of message #1215, result = 0
-XXp2(): sending message #1216 to mailbox 7
-XXp2(): after send of message #1216, result = 0
-XXp2(): sending message #1217 to mailbox 7
-XXp2(): after send of message #1217, result = 0
-XXp2(): sending message #1218 to mailbox 7
-XXp2(): after send of message #1218, result = 0
-XXp2(): sending message #1219 to mailbox 7
-XXp2(): after send of message #1219, result = 0
-XXp2(): sending message #1220 to mailbox 7
-XXp2(): after send of message #1220, result = 0
-XXp2(): sending message #1221 to mailbox 7
-XXp2(): after send of message #1221, result = 0
-XXp2(): sending message #1222 to mailbox 7
-XXp2(): after send of message #1222, result = 0
-XXp2(): sending message #1223 to mailbox 7
-XXp2(): after send of message #1223, result = 0
-XXp2(): sending message #1224 to mailbox 7
-XXp2(): after send of message #1224, result = 0
-XXp2(): sending message #1225 to mailbox 7
-XXp2(): after send of message #1225, result = 0
-XXp2(): sending message #1226 to mailbox 7
-XXp2(): after send of message #1226, result = 0
-XXp2(): sending message #1227 to mailbox 7
-XXp2(): after send of message #1227, result = 0
-XXp2(): sending message #1228 to mailbox 7
-XXp2(): after send of message #1228, result = 0
-XXp2(): sending message #1229 to mailbox 7
-XXp2(): after send of message #1229, result = 0
-XXp2(): sending message #1230 to mailbox 7
-XXp2(): after send of message #1230, result = 0
-XXp2(): sending message #1231 to mailbox 7
-XXp2(): after send of message #1231, result = 0
-XXp2(): sending message #1232 to mailbox 7
-XXp2(): after send of message #1232, result = 0
-XXp2(): sending message #1233 to mailbox 7
-XXp2(): after send of message #1233, result = 0
-XXp2(): sending message #1234 to mailbox 7
-XXp2(): after send of message #1234, result = 0
-XXp2(): sending message #1235 to mailbox 7
-XXp2(): after send of message #1235, result = 0
-XXp2(): sending message #1236 to mailbox 7
-XXp2(): after send of message #1236, result = 0
-XXp2(): sending message #1237 to mailbox 7
-XXp2(): after send of message #1237, result = 0
-XXp2(): sending message #1238 to mailbox 7
-XXp2(): after send of message #1238, result = 0
-XXp2(): sending message #1239 to mailbox 7
-XXp2(): after send of message #1239, result = 0
-start2(): joined with kid 5, status = -3
-start2(): receiving message #0 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #0'
-start2(): receiving message #1 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #1'
-start2(): receiving message #2 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #2'
-start2(): receiving message #3 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #3'
-start2(): receiving message #4 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #4'
-start2(): receiving message #5 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #5'
-start2(): receiving message #6 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #6'
-start2(): receiving message #7 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #7'
-start2(): receiving message #8 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #8'
-start2(): receiving message #9 from mailbox 7
-start2(): result = 24
-start2(): message = 'XXp1(): hello there, #9'
-start2(): sending message #0 to mailbox 7
-start2(): after send of message #0, result = 0
-start2(): sending message #1 to mailbox 7
-start2(): after send of message #1, result = 0
-start2(): sending message #2 to mailbox 7
-start2(): after send of message #2, result = 0
-start2(): sending message #3 to mailbox 7
-start2(): after send of message #3, result = 0
-start2(): sending message #4 to mailbox 7
-start2(): after send of message #4, result = 0
-start2(): sending message #5 to mailbox 7
-start2(): after send of message #5, result = 0
-start2(): sending message #6 to mailbox 7
-start2(): after send of message #6, result = 0
-start2(): sending message #7 to mailbox 7
-start2(): after send of message #7, result = 0
-start2(): sending message #8 to mailbox 7
-start2(): after send of message #8, result = 0
-start2(): sending message #9 to mailbox 7
-start2(): after send of message #9, result = 0
-start2(): sending message #10 to mailbox 7
-start2(): after send of message #10, result = 0
-start2(): sending message #11 to mailbox 7
-start2(): after send of message #11, result = 0
-start2(): sending message #12 to mailbox 7
-start2(): after send of message #12, result = 0
-start2(): sending message #13 to mailbox 7
-start2(): after send of message #13, result = 0
-start2(): sending message #14 to mailbox 7
-start2(): after send of message #14, result = 0
-start2(): sending message #15 to mailbox 7
-start2(): after send of message #15, result = 0
-start2(): sending message #16 to mailbox 7
-start2(): after send of message #16, result = 0
-start2(): sending message #17 to mailbox 7
-start2(): after send of message #17, result = 0
-start2(): sending message #18 to mailbox 7
-start2(): after send of message #18, result = 0
-start2(): sending message #19 to mailbox 7
-start2(): after send of message #19, result = 0
-start2(): sending message #20 to mailbox 7
-start2(): this should return -2
-start2(): after send of message #20, result = -2
-start2(): sending message #21 to mailbox 7
-start2(): this should return -2
-start2(): after send of message #21, result = -2
-start2(): sending message #22 to mailbox 7
-start2(): this should return -2
-start2(): after send of message #22, result = -2
-start2(): sending message #23 to mailbox 7
-start2(): this should return -2
-start2(): after send of message #23, result = -2
-start2(): sending message #24 to mailbox 7
-start2(): this should return -2
-start2(): after send of message #24, result = -2
+start3(): started
+start3(): spawned process 5
+Child1(): starting, pid = 5
+Child2(): starting, pid = 6
+Child2(): spawned process 7
+Child2(): spawned process 8
+Child2(): spawned process 9
+Child2(): spawned process 10
+Child2(): spawned process 11
+Child2(): spawned process 12
+Child2(): spawned process 13
+Child2(): spawned process 14
+Child2(): spawned process 15
+Child2(): spawned process 16
+Child2(): spawned process 17
+Child2(): spawned process 18
+Child2(): spawned process 19
+Child2(): spawned process 20
+Child2(): spawned process 21
+Child2(): spawned process 22
+Child2(): spawned process 23
+Child2(): spawned process 24
+Child2(): spawned process 25
+Child2(): spawned process 26
+Child2(): spawned process 27
+Child2(): spawned process 28
+Child2(): spawned process 29
+Child2(): spawned process 30
+Child2(): spawned process 31
+Child2(): spawned process 32
+Child2(): spawned process 33
+Child2(): spawned process 34
+Child2(): spawned process 35
+Child2(): spawned process 36
+Child2(): spawned process 37
+Child2(): spawned process 38
+Child2(): spawned process 39
+Child2(): spawned process 40
+Child2(): spawned process 41
+Child2(): spawned process 42
+Child2(): spawned process 43
+Child2(): spawned process 44
+Child2(): spawned process 45
+Child2(): spawned process 46
+Child2(): spawned process 47
+Child2(): spawned process 48
+Child2(): spawned process 49
+Child2(): spawned process 50
+Child2(): spawned attempt failed, pid = -1
+Child2(): spawned attempt failed, pid = -1
+Child2(): spawned attempt failed, pid = -1
+Child2(): spawned attempt failed, pid = -1
+Child2(): spawned attempt failed, pid = -1
+Child2(): spawned attempt failed, pid = -1
+Child2(): Terminating me and all my children
+Child1(): spawned process 6
+Child2b(): starting, pid = 56
+Child2c(): starting the code for Child2c
+Child2b(): spawned process 57
+Child1(): spawned process 56
+Child1(): child 56 returned status of 50
+Child1(): done
+start3(): child 5 returned status of 9
+start3(): done
 All processes completed.
 

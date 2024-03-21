@@ -1,18 +1,36 @@
-
+/*
+ * Simple Spawn test.
+ */
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
+#include <usloss.h>
 
-int start2(char *arg)
+
+int Child1(char *);
+
+int start3(char *arg)
 {
-  int mbox_id;
+    int pid;
 
-  printf("start2(): started\n");
-  mbox_id = MboxCreate(10, 50);
-  printf("start2(): MailBoxCreate returned id = %d\n", mbox_id);
-  mbox_id = MboxCreate(20, 30);
-  printf("start2(): MailBoxCreate returned id = %d\n", mbox_id);
-  quit(0);
-  return 0; /* so gcc will not complain about its absence... */
-}
+   printf("start3(): started.  Calling Spawn for Child1\n");
+   Spawn("Child1", Child1, NULL, USLOSS_MIN_STACK, 2, &pid);
+   printf("start3(): after spawn of %d\n", pid);
+   printf("start3(): Parent done. Calling Terminate.\n");
+   Terminate(8);
+
+   return 0;
+} /* start3 */
+
+
+int Child1(char *arg) 
+{
+
+   printf("Child1(): starting\n");
+   printf("Child1(): done\n");
+   // Terminate(9);
+
+   return 9;
+} /* Child1 */

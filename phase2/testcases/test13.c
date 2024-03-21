@@ -1,51 +1,49 @@
-
-/* A test of waitdevice for the clock */
-
+/*
+ * Three process test of GetPID.
+ */
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
+#include <usloss.h>
 
-int XXp1(char *);
-int XXp3(char *);
-char buf[256];
 
-int start2(char *arg)
+int Child1(char *);
+
+int semaphore;
+
+int start3(char *arg)
 {
-   int kid_status, kidpid;
+   int pid, status;
 
-   printf("start2(): at beginning, pid = %d\n", getpid());
+   printf("start3(): started\n");
 
-   kidpid = fork1("XXp1", XXp1, NULL, 2 * USLOSS_MIN_STACK, 3);
-   printf("start2(): fork'd child %d\n", kidpid);
+   printf("start3(): calling Spawn for Child1a\n");
+   Spawn("Child1a", Child1, "Child1a", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child1b\n");
+   Spawn("Child1b", Child1, "Child1b", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child1c\n");
+   Spawn("Child1c", Child1, "Child1c", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child2\n");
+   Wait(&pid, &status);
+   Wait(&pid, &status);
+   Wait(&pid, &status);
+   printf("start3(): Parent done. Calling Terminate.\n");
+   Terminate(8);
 
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
+   return 0;
+} /* start3 */
 
 
-int XXp1(char *arg)
+int Child1(char *my_name) 
 {
-   int result, status;
+   int pid;
 
-   printf("XXp1(): started, calling waitdevice for clock\n");
+   printf("%s(): starting\n", my_name);
+   GetPID(&pid);
+   printf("%s(): pid = %d\n", my_name, pid);
+   printf("%s(): done\n", my_name);
 
-   result = waitdevice(CLOCK_DEV, 0, &status);
-   printf("XXp1(): after waitdevice call\n");
-
-   if ( result == -1 ) {
-      printf("XXp1(): got zap'd result from waitdevice() call. ");
-      printf("Should not have happened!\n");
-   }
-   else if ( result == 0 )
-      printf("XXp1(): status = %d\n", status);
-   else
-      printf("XXp1(): got %d instead of -1 or 0 from waitdevice\n", result);
-
-   quit(-3);
-   return 0; /* so gcc will not complain about its absence... */
-} /* XXp1 */
+   return 9;
+} /* Child1 */

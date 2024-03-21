@@ -1,64 +1,53 @@
-
-/* A test of waitdevice for a terminal.  Can be used to test other
- * three terminals as well.
- */
-
+/*
+  Check that spawn and it's return parameters work. 
+  Also check if start3 is in user mode.
+*/
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
+#include <stdlib.h>
 #include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
 
-int XXp1(char *);
-int XXp3(char *);
-char buf[256];
+#include <assert.h>
 
-int start2(char *arg)
+
+
+int Child1(char *arg) 
 {
-   int kid_status, kidpid;
-   int control = 0;
-
-   printf("start2(): started\n");
-
-   control = TERM_CTRL_RECV_INT(control);
-
-   printf("start2(): calling device_output to enable receive interrupts, ");
-   printf("control = %d\n", control);
-
-   device_output(TERM_DEV, 1, (void *)control);
-
-   kidpid = fork1("XXp1", XXp1, NULL, 2 * USLOSS_MIN_STACK, 3);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
+  if(psr_get() & PSR_CURRENT_MODE){
+    printf("Child1(): not in user mode\n");
+    exit(1);
+  }
+  console("Child1(): starting\n");
+  Terminate(32);
+  return 0;
+}
 
 
-int XXp1(char *arg)
+int start3(char *arg)
 {
-   int result, status;
+  int pid,id;
 
-   printf("XXp1(): started, calling waitdevice for terminal 1\n");
+  printf("start3(): started\n");
+  if(psr_get() & PSR_CURRENT_MODE){
+    printf("start3 not in user mode\n");
+    exit(1);
+  }
+  Spawn("Child1", Child1, NULL, USLOSS_MIN_STACK, 4, &pid);
+  printf("start3(): fork %d\n", pid);
+  Wait(&pid, &id);
+  assert(id == 32);
+  console("start3(): Done.\n");
+  Terminate(0);
 
-   result = waitdevice(TERM_DEV, 1, &status);
-   printf("XXp1(): after waitdevice call\n");
+  return 0;
+}
 
-   if ( result == -1 ) {
-      printf("XXp1(): got zap'd result from waitdevice() call. ");
-      printf("Should not have happened!\n");
-   }
-   else if ( result == 0 )
-      printf("XXp1(): status = %d\n", status);
-   else
-      printf("XXp1(): got %d instead of -1 or 0 from waitdevice\n", result);
 
-   printf("XXp1(): receive status for terminal 1 = %d\n",
-          TERM_STAT_RECV(status));
-   printf("XXp1(): character received = %c\n", TERM_STAT_CHAR(status));
 
-   quit(-3);
-   return 0; /* so gcc will not complain about its absence... */
-} /* XXp1 */
+
+
+
+

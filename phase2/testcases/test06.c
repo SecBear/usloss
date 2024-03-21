@@ -1,74 +1,62 @@
-/* Creates two children.  Higher priority child does 6 send.  
- * Lower priority child then does 6 receive.
- */
 
+/*
+ * Two process semaphore test.
+ */
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
+#include <usloss.h>
 
-int XXp1(char *);
-int XXp2(char *);
-char buf[256];
+int Child1(char *);
+int Child2(char *);
 
-int mbox_id;
+int semaphore;
 
-int start2(char *arg)
+int start3(char *arg)
 {
-   int kid_status, kidpid;
+   int pid, status;
+   int sem_result;
 
-   printf("start2(): started\n");
-   mbox_id = MboxCreate(5, 50);
-   printf("start2(): MboxCreate returned id = %d\n", mbox_id);
-
-   kidpid = fork1("XXp1", XXp1, NULL, 2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp2", XXp2, NULL, 2 * USLOSS_MIN_STACK, 4);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
-
-
-int XXp1(char *arg)
-{
-   int i, result;
-   char buffer[20];
-
-   printf("XXp1(): started\n");
-
-   for (i = 0; i <= 5; i++) {
-      printf("XXp1(): sending message #%d to mailbox %d\n", i, mbox_id);
-      sprintf(buffer, "hello there, #%d", i);
-      result = MboxSend(mbox_id, buffer, strlen(buffer)+1);
-      printf("XXp1(): after send of message #%d, result = %d\n", i, result);
+   printf("start3(): started.  Creating semaphore.\n");
+   sem_result = SemCreate(0, &semaphore);
+   if (sem_result != 0) {
+      printf("start3(): got non-zero semaphore result. Terminating...\n");
+      Terminate(1);
    }
+   printf("start3(): calling Spawn for Child1\n");
+   Spawn("Child1", Child1, NULL, USLOSS_MIN_STACK, 2, &pid);
+   printf("start3(): after spawn of %d\n", pid);
+   printf("start3(): calling Spawn for Child2\n");
+   Spawn("Child2", Child2, NULL, USLOSS_MIN_STACK, 2, &pid);
+   printf("start3(): after spawn of %d\n", pid);
+   Wait(&pid, &status);
+   Wait(&pid, &status);
+   printf("start3(): Parent done. Calling Terminate.\n");
+   Terminate(8);
 
-   quit(-3);
    return 0;
-} /* XXp1 */
+} /* start3 */
 
 
-int XXp2(char *arg)
+int Child1(char *arg) 
 {
-  char buffer[100];
-  int i, result;
 
-  printf("XXp2(): started\n");
+   printf("Child1(): starting, P'ing semaphore\n");
+   SemP(semaphore);
+   printf("Child1(): done\n");
 
-  for (i = 0; i <= 5; i++) {
-     printf("XXp2(): receiving message #%d from mailbox %d\n", i, mbox_id);
-     result = MboxReceive(mbox_id, buffer, 100);
-     printf("XXp2(): after receipt of message #%d, result = %d\n", i, result);
-     printf("        message = `%s'\n", buffer);
-  }
+   return 9;
+} /* Child1 */
 
-  quit(-4);
-  return 0;
-} /* XXp2 */
+
+int Child2(char *arg) 
+{
+
+   printf("Child2(): starting, V'ing semaphore\n");
+   SemV(semaphore);
+   printf("Child2(): done\n");
+
+   return 9;
+} /* Child1 */

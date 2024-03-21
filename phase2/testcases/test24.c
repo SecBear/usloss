@@ -1,140 +1,91 @@
-/* start2 creates a 5 slot mailbox, then fork's XXp3 at priority 5.
- * XXp3 sends 5 messages to the mailbox (filling all the slots); XXp3 then
- * creates three instances of XXp2 running at priorities 4, 3, 2 respectively.
- * Each instance of XXp2 sends a message to the mailbox (and blocks, since
- * the mailbox slots are all full). This leaves all three instances of XXp2
- * blocked on the mailbox in the order 4, 3, 2.
- * XXp3 then fork's XXp1 running at priority 1. XXp1 receives 8 messages,
- * printing the contents of each.
- */
+/* recursive terminate test */
 
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
-#include <stdlib.h>
 #include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
 
-int XXp1(char *);
-int XXp2(char *);
-int XXp3(char *);
 
-int mbox_id;
+int Child1(char *);
+int Child2(char *);
+int Child2a(char *);
+int Child2b(char *);
+int Child2c(char *);
 
-int start2(char *arg)
+int sem1;
+
+int start3(char *arg)
 {
-   int kid_status, kidpid;
+    int pid;
+    int status;
 
-   printf("start2(): started\n");
-   mbox_id = MboxCreate(5, MAX_MESSAGE);
-   printf("start2(): MboxCreate returned id = %d\n", mbox_id);
-
-   kidpid = fork1("XXp3", XXp3, NULL, 2 * USLOSS_MIN_STACK, 5);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
+    printf("start3(): started\n");
+    Spawn("Child1", Child1, "Child1", USLOSS_MIN_STACK, 4, &pid);
+    printf("start3(): spawned process %d\n", pid);
+    Wait(&pid, &status);
+    printf("start3(): child %d returned status of %d\n", pid, status);
+    printf("start3(): done\n");
+    Terminate(8);
+    return 0;
+} /* start3 */
 
 
-int XXp1(char *arg)
+int Child1(char *arg) 
 {
-   int i, result;
-   char buffer[MAX_MESSAGE];
+    int pid;
+    int status;
 
-   printf("XXp1(): started\n");
+    GetPID(&pid);
+    console("%s(): starting, pid = %d\n", arg, pid);
+    Spawn("Child2", Child2, "Child2", USLOSS_MIN_STACK, 2, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Wait(&pid, &status);
+    printf("%s(): child %d returned status of %d\n", arg, pid, status);
+    console("%s(): done\n", arg);
+    Terminate(9);
 
-   for (i = 1; i <= 8; i++) {
-      result = MboxReceive(mbox_id, buffer, MAX_MESSAGE);
-      printf("XXp1(): received message #%d containing: %s\n", i, buffer);
-   }
+    return 0;
+} /* Child1 */
 
-   quit(-1);
-   return 0;
-} /* XXp1 */
-
-
-int XXp2(char *arg)
+int Child2(char *arg) 
 {
-   int result = -5;
-   int my_priority = atoi(arg);
+    int pid;
 
-   printf("XXp2(): started\n");
+    GetPID(&pid);
+    console("%s(): starting, pid = %d\n", arg, pid);
+    Spawn("Child2a", Child2a, "Child2a", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Spawn("Child2b", Child2b, "Child2b", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Spawn("Child2c", Child2c, "Child2c", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Terminate(10);
 
-   printf("XXp2(): priority %d, sending message to mailbox %d\n",
-           my_priority, mbox_id);
-   switch (my_priority) {
-   case 2:
-      result = MboxSend(mbox_id, "Eighth message", 15);
-      break;
-   case 3:
-      result = MboxSend(mbox_id, "Seventh message", 16);
-      break;
-   case 4:
-      result = MboxSend(mbox_id, "Sixth message", 14);
-      break;
-   default:
-      printf("XXp2(): problem in switch!!!!\n");
-   }
+    return 0;
+} /* Child2 */
 
-   printf("XXp2(): priority %d, after sending message, result = %d\n",
-           my_priority, result);
-
-   quit(-my_priority);
-   return 0;
-} /* XXp2 */
-
-
-int XXp3(char *arg)
+int Child2a(char *arg) 
 {
-   int kidpid, status, i;
-   int result;
+    console("%s(): starting the code for Child2a\n", (char *) arg);
+    Terminate(11);
 
-   printf("XXp3(): started, about to send 5 messages to the mailbox\n");
+    return 0;
+} /* Child2a */
 
-   for (i = 1; i <= 5; i++) {
-      printf("XXp3(): sending message #%d to mailbox %d\n", i, mbox_id);
-      switch (i) {
-      case 1:
-         result = MboxSend(mbox_id, "First message", 14);
-         break;
-      case 2:
-         result = MboxSend(mbox_id, "Second message", 15);
-         break;
-      case 3:
-         result = MboxSend(mbox_id, "Third message", 14);
-         break;
-      case 4:
-         result = MboxSend(mbox_id, "Fourth message", 15);
-         break;
-      case 5:
-         result = MboxSend(mbox_id, "Fifth message", 14);
-         break;
-      default:
-         printf("XXp3(): problem in switch!!!!\n");
-      }
-   }
+int Child2b(char *arg) 
+{
+    console("%s(): starting the code for Child2b\n", (char *) arg);
+    Terminate(11);
 
-   printf("XXp3(): fork'ing XXp2 at priority 4\n");
-   kidpid = fork1("XXp2", XXp2, "4", 2 * USLOSS_MIN_STACK, 4);
+    return 0;
+} /* Child2b */
 
-   printf("XXp3(): fork'ing XXp2 at priority 3\n");
-   kidpid = fork1("XXp2", XXp2, "3", 2 * USLOSS_MIN_STACK, 3);
+int Child2c(char *arg) 
+{
+    console("%s(): starting the code for Child2c\n", (char *) arg);
+    Terminate(11);
 
-   printf("XXp3(): fork'ing XXp2 at priority 2\n");
-   kidpid = fork1("XXp2", XXp2, "2", 2 * USLOSS_MIN_STACK, 2);
-
-   printf("XXp3(): fork'ing XXp1 at priority 1\n");
-   kidpid = fork1("XXp1", XXp1, NULL, 2 * USLOSS_MIN_STACK, 1);
-
-   for (i = 0; i < 4; i++) {
-      kidpid = join(&status);
-      printf("XXp3(): join'd with child %d whose status is %d\n",
-              kidpid, status);
-   }
-
-   quit(-5);
-   return 0;
-} /* XXp3 */
+    return 0;
+} /* Child2c */

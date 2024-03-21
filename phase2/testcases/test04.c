@@ -1,62 +1,26 @@
+/*
+ * Simple Sem Create test.
+ */
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
-#include <strings.h>
+#include <usloss.h>
 
-int XXp1(char *);
-int XXp2(char *);
-char buf[256];
 
-int mbox_id;
-
-int start2(char *arg)
+int start3(char *arg)
 {
-  int kid_status, kidpid;
+    int semaphore;
+    int sem_result;
 
-  printf("start2(): started\n");
-  mbox_id = MboxCreate(10, 50);
-  printf("start2(): MboxCreate returned id = %d\n", mbox_id);
+   printf("start3(): started.  Calling SemCreate\n");
+   sem_result = SemCreate(0, &semaphore);
+   printf("start3(): sem_result = %d, semaphore = %d\n", sem_result, semaphore);
+   sem_result = SemCreate(0, &semaphore);
+   printf("start3(): sem_result = %d, semaphore = %d\n", sem_result, semaphore);
+   Terminate(8);
 
-  kidpid = fork1("XXp1", XXp1, NULL, 2 * USLOSS_MIN_STACK, 3);
-  kidpid = fork1("XXp2", XXp2, NULL, 2 * USLOSS_MIN_STACK, 4);
+   return 0;
+} /* start3 */
 
-  kidpid = join(&kid_status);
-  printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-  kidpid = join(&kid_status);
-  printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-  quit(0);
-  return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
-
-
-int XXp1(char *arg)
-{
-  int result;
-
-  printf("XXp1(): started\n");
-  printf("XXp1(): sending message to mailbox %d\n", mbox_id);
-  result = MboxSend(mbox_id, "hello there", strlen("hello there")+1);
-  printf("XXp1(): after send of message, result = %d\n", result);
-
-  quit(-3);
-  return 0;
-} /* XXp1 */
-
-
-int XXp2(char *arg)
-{
-  char buffer[100];
-  int result;
-
-  printf("XXp2(): started\n");
-  printf("XXp2(): receiving message from mailbox %d\n", mbox_id);
-  result = MboxReceive(mbox_id, buffer, 100);
-  printf("XXp2(): after receipt of message, result = %d\n", result);
-  printf("        message = `%s'\n", buffer);
-
-  quit(-4);
-  return 0;
-} /* XXp2 */

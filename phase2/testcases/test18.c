@@ -1,98 +1,77 @@
+/* recursive terminate test */
 
-/* checking for release: 3 instances of XXp2 receive messages from a zero-slot
- * mailbox, which causes them to block. XXp4 then releases the mailbox.
- * All processes are at the same priority.
- */
-
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
 #include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
 
-int XXp2(char *);
-int XXp3(char *);
-int XXp4(char *);
-char buf[256];
 
-int mbox_id;
+int Child1(char *);
+int Child2(char *);
+int Child3(char *);
 
-int start2(char *arg)
+int sem1;
+
+int start3(char *arg)
 {
-   int kid_status, kidpid, pausepid;
+    int pid;
+    int status;
 
-   printf("start2(): started\n");
-   mbox_id  = MboxCreate(0, 50);
-   printf("start2(): MboxCreate returned id = %d\n", mbox_id);
-
-   kidpid   = fork1("XXp2a", XXp2, "XXp2a", 2 * USLOSS_MIN_STACK, 3);
-   kidpid   = fork1("XXp2b", XXp2, "XXp2b", 2 * USLOSS_MIN_STACK, 3);
-   kidpid   = fork1("XXp2c", XXp2, "XXp2c", 2 * USLOSS_MIN_STACK, 3);
-   pausepid = fork1("XXp4",  XXp4, "XXp4",  2 * USLOSS_MIN_STACK, 3);
-   kidpid = join(&kid_status);
-   if (kidpid != pausepid)
-      printf("\n***Test Failed*** -- join with pausepid failed!\n\n");
-
-   kidpid   = fork1("XXp3",  XXp3, NULL,    2 * USLOSS_MIN_STACK, 2);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
+    printf("start3(): started\n");
+    Spawn("Child1", Child1, "Child1", USLOSS_MIN_STACK, 4, &pid);
+    printf("start3(): spawned process %d\n", pid);
+    Wait(&pid, &status);
+    printf("start3(): child %d returned status of %d\n", pid, status);
+    printf("start3(): done\n");
+    Terminate(8);
+    return 0;
+} /* start3 */
 
 
-int XXp2(char *arg)
+int Child1(char *arg) 
 {
-   int result;
-   char buffer[20];
+    int pid;
+    int status;
 
-   // initialize for strings
-   buffer[0] = 0;
+    GetPID(&pid);
+    console("%s(): starting, pid = %d\n", arg, pid);
+    Spawn("Child2", Child2, "Child2", USLOSS_MIN_STACK, 2, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Wait(&pid, &status);
+    printf("%s(): child %d returned status of %d\n", arg, pid, status);
+    Spawn("Child3", Child3, "Child3", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Wait(&pid, &status);
+    printf("%s(): child %d returned status of %d\n", arg, pid, status);
+    console("%s(): done\n", arg);
+    Terminate(9);
 
-   result = MboxReceive(mbox_id, buffer, 20);
-   printf("%s(): after recv of message '%s', result = %d\n",
-          arg, buffer, result);
+    return 0;
+} /* Child1 */
 
-   if (result == -3)
-      printf("%s(): zap'd by MboxReceive() call\n", arg);
-
-   quit(-3);
-   return 0;
-
-} /* XXp2 */
-
-
-int XXp3(char *arg)
+int Child2(char *arg) 
 {
-   int result;
+    int pid;
 
-   printf("XXp3(): started\n");
+    GetPID(&pid);
+    console("%s(): starting, pid = %d\n", arg, pid);
+    Spawn("Child2a", Child3, "Child2a", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Spawn("Child2b", Child3, "Child2b", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Spawn("Child2c", Child3, "Child2c", USLOSS_MIN_STACK, 5, &pid);
+    printf("%s(): spawned process %d\n", arg, pid);
+    Terminate(10);
 
-   result = MboxRelease(mbox_id);
+    return 0;
+} /* Child2 */
 
-   printf("XXp3(): MboxRelease returned %d\n", result);
-
-   quit(-4);
-   return 0;
-} /* XXp3 */
-
-
-int XXp4(char *arg)
+int Child3(char *arg) 
 {
+    console("%s(): starting\n", arg);
+    Terminate(11);
 
-   printf("XXp4(): started and quitting\n");
-   quit(-4);
-
-   return 0;
-}
+    return 0;
+} /* Child3 */

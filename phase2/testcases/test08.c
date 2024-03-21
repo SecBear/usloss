@@ -1,110 +1,49 @@
-
-/* Creates a 5-slot mailbox. Creates XXp1 that sends five messages to the
- * mailbox, then terminates. Creates XXp2a,b,c each of which sends a
- * message to the mailbox and gets blocked since the box is full.
- * Creates XXp3, which releases the mailbox, freeing the 5 slots and
- * unblocking XXp2a,b,c.  Each of XXp2a,b,c should return -3 from their
- * MboxReceive calls.  Note that XXp2a,b,c are higher priority than
- * XXp3, which is releasing the mailbox.
+/*
+ * Sem Free + Max Sem Create test.
  */
-
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
+#include <phase3.h>
+#include <usloss.h>
 
-int XXp1(char *);
-int XXp2(char *);
-int XXp3(char *);
-char buf[256];
 
-int mbox_id;
-
-int start2(char *arg)
+int start3(char *arg)
 {
-   int kid_status, kidpid;
+   int semaphore[MAXSEMS+1];
+   int sem_result;
+   int i;
 
-   printf("start2(): started\n");
-   mbox_id = MboxCreate(5, 50);
-   printf("start2(): MboxCreate returned id = %d\n", mbox_id);
-
-   kidpid = fork1("XXp1",  XXp1, NULL,    2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp2a", XXp2, "XXp2a", 2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp2b", XXp2, "XXp2b", 2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp2c", XXp2, "XXp2c", 2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp3",  XXp3, NULL,    2 * USLOSS_MIN_STACK, 4);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
-
-
-int XXp1(char *arg)
-{
-   int i, result;
-   char buffer[20];
-
-   printf("XXp1(): started\n");
-
-   for (i = 0; i < 5; i++) {
-      printf("XXp1(): sending message #%d to mailbox %d\n", i, mbox_id);
-      sprintf(buffer, "hello there, #%d", i);
-      result = MboxSend(mbox_id, buffer, strlen(buffer)+1);
-      printf("XXp1(): after send of message #%d, result = %d\n", i, result);
+   printf("start3(): started.  Calling SemCreate\n");
+   for (i = 0; i < MAXSEMS; i++) {
+      sem_result = SemCreate(0, &semaphore[i]);
+      if (sem_result == -1)
+         printf("start3(): i = %3d, sem_result = %2d\n", i, sem_result);
    }
 
-   quit(-3);
-   return 0; /* so gcc will not complain about its absence... */
-} /* XXp1 */
+   sem_result = SemCreate(0, &semaphore[MAXSEMS]);
 
+   if (sem_result != -1)
+      printf("start3(): ERROR: sem_result should have been -1, but was not\n");
 
-int XXp2(char *arg)
-{
-   int result;
-   char buffer[20];
+   printf("start3(): freeing one semaphore\n");
+   sem_result = SemFree(semaphore[105]);
 
-   sprintf(buffer, "hello from %s", arg);
-   printf("%s(): sending message '%s' to mailbox %d, msg_size = %d\n",
-          arg, buffer, mbox_id, strlen(buffer)+1);
-   result = MboxSend(mbox_id, buffer, strlen(buffer)+1);
-   printf("%s(): after send of message '%s', result = %d\n",
-          arg, buffer, result);
+   if (sem_result != 0)
+      printf("start3(): ERROR: SemFree should have returned 0, but did not\n");
 
-   if (result == -3)
-      printf("%s(): zap'd by MboxSend() call\n", arg);
+   sem_result = SemCreate(0, &semaphore[MAXSEMS]);
 
-   quit(-3);
+   if (sem_result == 0)
+      printf("start3(): Correct result from last call to SemCreate()\n");
+   else {
+      printf("start3(): ERROR: last call to SemCreate should have ");
+      printf("returned 0, but did not\n");
+   }
+   
+   Terminate(8);
+
    return 0;
-
-} /* XXp2 */
-
-
-int XXp3(char *arg)
-{
-   int result;
-
-   printf("XXp3(): started\n");
-
-   result = MboxRelease(mbox_id);
-
-   printf("XXp3(): MboxRelease returned %d\n", result);
-
-   quit(-4);
-   return 0;
-} /* XXp3 */
+} /* start3 */

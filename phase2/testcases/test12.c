@@ -1,115 +1,55 @@
-
-/* Creates a 5-slot mailbox. Creates XXp1 that conditionally sends eight hello
- * messages * to the mailbox, five of which should succeed and three will
- * return -2.  XXp1 then blocks on a receive on its private mailbox.
- * Creates XXp3 which receives the five hello messages that should be available
- * from the slots.  XXp3 then sends to XXp1's private mailbox.  Since XXp3 is
- * lower priority than XXp1, XXp1 runs again.
- * XXp1 wakes up from its private mailbox and sends eight goodbye messages to
- * the mailbox, five of which should succeed and three will return -2.  XXp1
- * then quits.
- * XXp3 should pick up the five good-bye messages from the mailbox and quit.
+/*
+ * Three process test of GetTimeofDay and CPUTime.
  */
-
+#include <usyscall.h>
+#include <libuser.h>
 #include <stdio.h>
-#include <strings.h>
-#include <usloss.h>
 #include <phase1.h>
 #include <phase2.h>
+#include <usloss.h>
 
-int XXp1(char *);
-int XXp3(char *);
-char buf[256];
 
-int mbox_id, private_mbox;
+int Child1(char *);
 
-int start2(char *arg)
+int semaphore;
+
+int start3(char *arg)
 {
-   int kid_status, kidpid;
+   int pid, status;
 
-   printf("start2(): started\n");
-   mbox_id = MboxCreate(5, 50);
-   printf("start2(): MboxCreate returned id = %d\n", mbox_id);
-   private_mbox = MboxCreate(0, 50);
-   printf("start2(): MboxCreate returned id = %d\n", private_mbox);
+   printf("start3(): started\n");
 
-   kidpid = fork1("XXp1",  XXp1, NULL,    2 * USLOSS_MIN_STACK, 3);
-   kidpid = fork1("XXp3",  XXp3, NULL,    2 * USLOSS_MIN_STACK, 4);
+   printf("start3(): calling Spawn for Child1a\n");
+   Spawn("Child1a", Child1, "Child1a", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child1b\n");
+   Spawn("Child1b", Child1, "Child1b", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child1c\n");
+   Spawn("Child1c", Child1, "Child1c", USLOSS_MIN_STACK, 1, &pid);
+   printf("start3(): calling Spawn for Child2\n");
+   Wait(&pid, &status);
+   Wait(&pid, &status);
+   Wait(&pid, &status);
+   printf("start3(): Parent done. Calling Terminate.\n");
+   Terminate(8);
 
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   kidpid = join(&kid_status);
-   printf("start2(): joined with kid %d, status = %d\n", kidpid, kid_status);
-
-   quit(0);
-   return 0; /* so gcc will not complain about its absence... */
-} /* start2 */
-
-
-int XXp1(char *arg)
-{
-   int i, result;
-   char buffer[20];
-
-   printf("XXp1(): started\n");
-
-   for (i = 0; i < 8; i++) {
-      printf("XXp1(): conditionally sending message #%d to mailbox %d\n",
-             i, mbox_id);
-      sprintf(buffer, "hello there, #%d", i);
-      result = MboxCondSend(mbox_id, buffer, strlen(buffer)+1);
-      printf("XXp1(): after conditional send of message #%d, result = %d\n",
-             i, result);
-   }
-
-   MboxReceive(private_mbox, NULL, 0);
-
-   for (i = 0; i < 8; i++) {
-      printf("XXp1(): conditionally sending message #%d to mailbox %d\n",
-             i, mbox_id);
-      sprintf(buffer, "good-bye, #%d", i);
-      result = MboxCondSend(mbox_id, buffer, strlen(buffer)+1);
-      printf("XXp1(): after conditional send of message #%d, result = %d\n",
-             i, result);
-   }
-
-   quit(-3);
-   return 0; /* so gcc will not complain about its absence... */
-} /* XXp1 */
-
-
-int XXp3(char *arg)
-{
-   char buffer[100];
-   int i = 0, result, count;
-
-   printf("XXp3(): started\n");
-
-   count = 0;
-   while ( (result = MboxCondReceive(mbox_id, buffer, 100)) >= 0 ) {
-      printf("XXp3(): conditionally received message #%d from mailbox %d\n",
-             i, mbox_id);
-      printf("        message = `%s'\n", buffer);
-      count++;
-   }
-   printf("XXp3(): After loop, result is negative; result = %d\n", result);
-   printf("XXp3(): received %d hello messages from mailbox %d\n",
-          count, mbox_id);
-
-   MboxSend(private_mbox, NULL, 0);
-
-   count = 0;
-   while ( (result = MboxCondReceive(mbox_id, buffer, 100)) >= 0 ) {
-      printf("XXp3(): conditionally received message #%d from mailbox %d\n",
-             i, mbox_id);
-      printf("        message = `%s', result = %d\n", buffer, result);
-      count++;
-   }
-   printf("XXp3(): After loop, result is negative; result = %d\n", result);
-   printf("XXp3(): received %d good-bye messages from mailbox %d\n",
-          count, mbox_id);
-
-   quit(-4);
    return 0;
-} /* XXp3 */
+} /* start3 */
+
+
+int Child1(char *my_name) 
+{
+   int i, j, temp, time;
+
+   printf("%s(): starting\n", my_name);
+   for (j = 0; j < 3; j++) {
+      for (i = 0; i < 1000; i++)
+         temp = 2 + temp;
+      GetTimeofDay(&time);
+      printf("%s(): current time of day = %d\n", my_name, time);
+      CPUTime(&time);
+      printf("%s(): current CPU time = %d\n", my_name, time);
+   }
+   printf("%s(): done\n", my_name);
+
+   return 9;
+} /* Child1 */
