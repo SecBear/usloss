@@ -54,3 +54,20 @@ start2(char *arg)
 
 } /* start2 */
 
+extern int spawn_real (char *name, int (*func)(Char *), char *arg, int stack_size, int priority);
+
+extern int wait_real(int *status);
+
+extern void terminate_real(int exit_code);
+
+extern int semcreate_real(int init_value);
+
+extern int semp_real(int semaphore);
+
+extern int semv_real(int semaphore);
+
+extern int gettimeofday_real(int *time);
+
+extern int cputime_real(int *time);
+
+extern int getPID_real(int *pid);

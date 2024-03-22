@@ -54,3 +54,17 @@ start2(char *arg)
 
 } /* start2 */
 
+
+// Grabbed this from lecture - creates a semaphore
+int SemCreate(int value, int *semaphore)
+{
+    sysargs sa;
+
+    CHECKMODE;  // check kernel mode?
+    sa.number = SYS_SEMCREATE;  // Constant for some purpose
+    sa.arg1 = (void *) value;
+    usyscall(&sa);  // Invokes an interrupt - activates syscall handler - 
+                    // Note: sys_vec[sys_ptr->number](sys_ptr) just calls the function at sys_vec[sys_ptr->number]. The (sys_ptr) is the parameter we're passing to the funciton call. It's just a pointer to a data structure. sys_vec is an array of function pointers.
+    *semaphore = (int) sa.arg4;
+    return (int) sa.arg4;
+}
