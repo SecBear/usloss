@@ -2,12 +2,18 @@
 #include <phase1.h>
 #include <phase2.h>
 #include <phase3.h>
+#include <sems.h>
 
 int start2(char *); 
+int start3(char *);
 int  spawn_real(char *name, int (*func)(char *), char *arg,
                 int stack_size, int priority);
 int  wait_real(int *status);
-int
+
+// Globals
+process ProcTable[MAXPROC];     // Array of processes
+
+// start2
 start2(char *arg)
 {
     int		pid;
@@ -54,6 +60,11 @@ start2(char *arg)
 
 } /* start2 */
 
+/* start3 */
+int start3(char *arg)
+{
+    // Not sure what goes here yet
+}
 
 // Grabbed this from lecture - creates a semaphore
 int SemCreate(int value, int *semaphore)
