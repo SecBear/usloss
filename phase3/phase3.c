@@ -11,6 +11,9 @@
 
 int start2(char *); 
 int start3(char *);
+void syscall_handler(int dev, void *punit);
+static int spawn_launch(char *arg);
+static void nullsys3(sysargs *args_ptr);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -34,7 +37,7 @@ start2(char *arg)
         //initialize every system call handler as nullsys3;
         sys_vec[i] = nullsys3;
     }
-    sys_vec[SYS_SPAWN] = Spawn; 
+    sys_vec[SYS_SPAWN] = Spawn;         // or is this supposed to be spawn?
     sys_vec[SYS_WAIT] = Wait;           // wait
     sys_vec[SYS_TERMINATE] = Terminate; // terminate
     sys_vec[SYS_SEMCREATE] = SemCreate; // semcreate
@@ -87,6 +90,7 @@ int start3(char *arg)
 {
     int pid;
     int status;
+    int Child1;
 
     printf("start3(): started. Calling Spawn for Child1\n");
     Spawn("Child1", Child1, NULL, USLOSS_MIN_STACK, 5, &pid);
@@ -101,11 +105,13 @@ int start3(char *arg)
     return 0;// Not sure what goes here yet
 }
 
-static void Spawn(sysargs *args)
+static void spawn(sysargs *args)
 {
     int(*func)(char *);
     char *arg;
     int stack_size;
+    int priority;
+    int name;
     // more local variables
     if (is_zapped)
     {
@@ -122,7 +128,7 @@ static void Spawn(sysargs *args)
     // call another function to modularize the code better
     int kid_pid = spawn_real(name, func, arg, stack_size, priority);    // spawn the process
     args->arg1 = (void *) kid_pid;  // packing to return back to caller
-    args->arg4 (void *) 0;
+    args->arg4 = (void *) 0;
 
     if (is_zapped()) // should terminate the process
     {
@@ -170,6 +176,7 @@ static int spawn_launch(char *arg)
     int my_location;
     int result;
     int (* start_func) (char *);
+    char* start_arg;
 
     // more to add if you see necessary
 
@@ -232,7 +239,8 @@ int  semp_real(int semaphore)
 
 // from phase 2
 // Syscall Handler
-void syscall_handler(int dev, void *punit) {
+void syscall_handler(int dev, void *punit) 
+{
    check_kernel_mode("sys_handler");
    sysargs *args = (sysargs*)punit;
 
