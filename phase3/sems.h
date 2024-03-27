@@ -7,6 +7,7 @@ struct process {                        // A process
    int      pid;
    /* other items as needed... */
    int      status;                     // Int to hold process status (Used, Unused, etc.)
+   // start mbox - do we need to create a mailbox table too? 
 };
 
 
