@@ -187,6 +187,31 @@ void semcreate()
 
 }
 
+
+// increment sempahore
+int  semv_real(int semaphore)
+{
+    // What if the semaphore value >0
+    // What if the semaphore value ==0
+
+    // Is there any process blocked on the semaphore because of P operation?
+    // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
+
+    // No process is blocked on it
+}
+
+// decrement semaphore
+int  semp_real(int semaphore)
+{
+    //What if the semaphore value >0
+    // Otherwise
+    // MboxReceive used to block on the private mailbox of the semaphore
+    // After unblocked
+    // if the semaphore is being freed, need to synchronize with the process that
+    // is freeing the semaphore
+    // Hint: use another zero-slot mailbox
+}
+
 // from phase 2
 // Syscall Handler
 void syscall_handler(int dev, void *punit) {

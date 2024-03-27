@@ -137,8 +137,8 @@ int SemCreate(int value, int *semaphore)
  *  Arguments:    int semaphore -- semaphore handle
  *                (output value: completion status)
  *
- */
-int SemP(int semaphore)
+ */ //
+int SemP(int semaphore) // Decrement the counter by 1
 {
     sysargs sa;
 
@@ -160,7 +160,7 @@ int SemP(int semaphore)
  *                (output value: completion status)
  *
  */
-int SemV(int semaphore)
+int SemV(int semaphore) // increment a semaphore
 {
     sysargs sa;
 
