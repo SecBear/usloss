@@ -170,6 +170,16 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     return kidpid;
 }
 
+extern int  wait_real(int *status)
+{
+
+}
+
+extern void terminate_real(int exit_code)
+{
+
+}
+
 static int spawn_launch(char *arg)
 {
     int parent_location = 0;
@@ -254,7 +264,7 @@ void syscall_handler(int dev, void *punit)
       halt(1);
    }
    else if (args == NULL || args->number < 0) {
-      nullsys(args);
+      nullsys3(args);
    } else
    {
       sys_vec[args->number](args);
@@ -268,6 +278,8 @@ static void nullsys3(sysargs *args_ptr)
     printf("nullsys3(): process %d terminating\n", getpid());
     terminate_real(1);
 } /* nullsys3 */
+
+
 
 // Add newly created semaphore to semaphore list
 int AddToSemList();
