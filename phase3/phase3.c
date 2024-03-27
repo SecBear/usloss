@@ -14,6 +14,7 @@ int start3(char *);
 void syscall_handler(int dev, void *punit);
 static int spawn_launch(char *arg);
 static void nullsys3(sysargs *args_ptr);
+void check_kernel_mode(char string[]);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -279,7 +280,19 @@ static void nullsys3(sysargs *args_ptr)
     terminate_real(1);
 } /* nullsys3 */
 
+void check_kernel_mode(char string[])
+{
+   int currentPsr = psr_get();
 
+   // if the kernel mode bit is not set, then halt
+   // meaning if not in kernel mode, halt(1)
+   if ((currentPsr & PSR_CURRENT_MODE) == 0)
+   {
+      // not in kernel mode
+      console("%s, Kernel mode expected, but function called in user mode.\n", string);
+      halt(1);
+   }
+}
 
 // Add newly created semaphore to semaphore list
 int AddToSemList();
