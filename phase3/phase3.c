@@ -14,6 +14,7 @@ int start3(char *);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
+semaphore SemTable[MAXSEMS];       // Array of seamphores
 
 // start2
 start2(char *arg)
@@ -33,8 +34,17 @@ start2(char *arg)
         //initialize every system call handler as nullsys3;
         sys_vec[i] = nullsys3;
     }
-    sys_vec[SYS_SPAWN] = spawn; 
-    sys_vec[SYS_SEMCREATE] = semcreate;
+    sys_vec[SYS_SPAWN] = Spawn; 
+    sys_vec[SYS_WAIT] = Wait;           // wait
+    sys_vec[SYS_TERMINATE] = Terminate; // terminate
+    sys_vec[SYS_SEMCREATE] = SemCreate; // semcreate
+    sys_vec[SYS_SEMP] = SemP;           // semp
+    sys_vec[SYS_SEMV] = SemV;           // semv
+    sys_vec[SYS_SEMFREE] = SemFree;     // semfree
+    sys_vec[SYS_GETTIMEOFDAY] = GetTimeofDay; // get time of day?
+    sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
+    sys_vec[SYS_GETPID] = GetPID;       // get pid?
+    // more?
 
     int_vec[SYSCALL_INT] = syscall_handler;
 
@@ -91,7 +101,7 @@ int start3(char *arg)
     return 0;// Not sure what goes here yet
 }
 
-static void spawn(sysargs *args)
+static void Spawn(sysargs *args)
 {
     int(*func)(char *);
     char *arg;
@@ -140,11 +150,17 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
 
     /* create our child */
     kidpid = fork1(name, spawn_launch, NULL, stack_size, priority);
+    //                   |-> change to launchUserProcess which waits for process to be initialized with parent, proclist, etc. before running (in the case of higher priority child)
     //more to check the kidpid and put the new process data to the process table
     //Then synchronize with the child using a mailbox
         result = MboxSend(ProcTable[kid_location].start_mbox, &my_location, sizeof(int));
 
     //more to add
+    // add child to proctable
+    /*
+      int procSlot = pid % MAXPROC;
+      ProcTable[procSlot].pid = pid;  
+    */
     return kidpid;
 }
 
@@ -212,6 +228,8 @@ int  semp_real(int semaphore)
     // Hint: use another zero-slot mailbox
 }
 
+
+
 // from phase 2
 // Syscall Handler
 void syscall_handler(int dev, void *punit) {
@@ -242,3 +260,9 @@ static void nullsys3(sysargs *args_ptr)
     printf("nullsys3(): process %d terminating\n", getpid());
     terminate_real(1);
 } /* nullsys3 */
+
+// Add newly created semaphore to semaphore list
+int AddToSemList();
+
+// Pop semaphore off semaphore list
+int PopSemList();
