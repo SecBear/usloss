@@ -86,26 +86,6 @@ start2(char *arg)
 
 } /* start2 */
 
-/* start3 */
-int start3(char *arg)
-{
-    int pid;
-    int status;
-    int Child1;
-
-    printf("start3(): started. Calling Spawn for Child1\n");
-    Spawn("Child1", Child1, NULL, USLOSS_MIN_STACK, 5, &pid);
-    printf("start3(): fork %d\n", pid);
-
-    Wait(&pid, &status);
-    printf("start3(): result of wait, pid = %d, status = %d\n", pid, status);
-
-    printf("start3(): Parent done. Calling Terminate.\n");
-    Terminate(8);
-
-    return 0;// Not sure what goes here yet
-}
-
 static void spawn(sysargs *args)
 {
     int(*func)(char *);
