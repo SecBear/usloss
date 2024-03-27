@@ -15,6 +15,8 @@ void syscall_handler(int dev, void *punit);
 static int spawn_launch(char *arg);
 static void nullsys3(sysargs *args_ptr);
 void check_kernel_mode(char string[]);
+int launchUserMode(char *arg);
+static void spawn(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -38,7 +40,7 @@ start2(char *arg)
         //initialize every system call handler as nullsys3;
         sys_vec[i] = nullsys3;
     }
-    sys_vec[SYS_SPAWN] = Spawn;         // or is this supposed to be spawn?
+    sys_vec[SYS_SPAWN] = syscall_spawn; // spawn system call handler 
     sys_vec[SYS_WAIT] = Wait;           // wait
     sys_vec[SYS_TERMINATE] = Terminate; // terminate
     sys_vec[SYS_SEMCREATE] = SemCreate; // semcreate
@@ -51,6 +53,9 @@ start2(char *arg)
     // more?
 
     int_vec[SYSCALL_INT] = syscall_handler;
+
+    // TODO: Initialize Proc Table
+    // TODO: Initialize semaphore table
 
 
     /*
@@ -86,7 +91,7 @@ start2(char *arg)
 
 } /* start2 */
 
-static void spawn(sysargs *args)
+static void syscall_spawn(sysargs *args)
 {
     int(*func)(char *);
     char *arg;
@@ -127,7 +132,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     // maintain the parent-child relationship at phase 3 process table
     // provide a launch function: spawn_launch()
 
-    int kidpid;
+    int pid;
     int my_location; /* parent's location in process table */
     int kid_location; /* child's location in process table */
     int result;
@@ -136,8 +141,15 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     my_location = getpid() % MAXPROC;
 
     /* create our child */
-    kidpid = fork1(name, spawn_launch, NULL, stack_size, priority);
+    pid = fork1(name, launchUserMode, arg, stack_size, priority);
     //                   |-> change to launchUserProcess which waits for process to be initialized with parent, proclist, etc. before running (in the case of higher priority child)
+    if (pid >= 0)
+    {
+        int procSlot = pid % MAXPROC;
+        ProcTable[procSlot].pid = pid;
+        ProcTable[procSlot].parentPid = getpid();
+        ProcTable[procSlot].entryPoint = func;  // give launchUserMode the function call 
+    }
     //more to check the kidpid and put the new process data to the process table
     //Then synchronize with the child using a mailbox
         result = MboxSend(ProcTable[kid_location].start_mbox, &my_location, sizeof(int));
@@ -148,17 +160,42 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
       int procSlot = pid % MAXPROC;
       ProcTable[procSlot].pid = pid;  
     */
-    return kidpid;
+    return pid;
 }
 
 extern int  wait_real(int *status)
 {
+    join(status);
 
+    return 0;
 }
 
 extern void terminate_real(int exit_code)
 {
+    
+}
 
+int launchUserMode(char *arg)
+{   
+    int pid;
+    int procSlot;
+    int result;
+    int psr;
+
+    pid = getpid();
+    procSlot = pid % MAXPROC;
+
+    // set user mode using get_psr and set_psr
+    psr = psr_get();
+
+    psr = psr & ~PSR_CURRENT_MODE;   // Unset the current mode bit (to user mode)
+
+    psr_set(psr);
+
+    // run the entry point
+    result = ProcTable[procSlot].entryPoint(arg);
+
+    return result;
 }
 
 static int spawn_launch(char *arg)

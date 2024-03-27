@@ -2,13 +2,20 @@
 #pragma once
 
 typedef struct process process;
+typedef struct process* pProcess;
 typedef struct semaphore semaphore;
 
 struct process {                        // A process
+   pProcess pNext;            // Next pointer
+   pProcess pPrev;            // Prev pointer
+
    int      pid;
-   /* other items as needed... */
-   int      status;        // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
-   int      start_mbox      // - do we need to create a mailbox table too? 
+   int      parentPid;
+   int      (*entryPoint)(char *); // entry point
+   char     name[MAXNAME];       // name
+   int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
+   int      privateMbox;
+   int      start_mbox;        // - do we need to create a mailbox table too? 
 };
 
 struct semaphore {   // A semaphore
