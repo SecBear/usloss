@@ -17,6 +17,8 @@ static void nullsys3(sysargs *args_ptr);
 void check_kernel_mode(char string[]);
 int launchUserMode(char *arg);
 static void syscall_spawn(sysargs *args);
+int syscall_wait(int *status);
+void syscall_terminate(int exit_code);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -41,8 +43,8 @@ start2(char *arg)
         sys_vec[i] = nullsys3;
     }
     sys_vec[SYS_SPAWN] = syscall_spawn; // spawn system call handler 
-    sys_vec[SYS_WAIT] = Wait;           // wait
-    sys_vec[SYS_TERMINATE] = Terminate; // terminate
+    sys_vec[SYS_WAIT] = syscall_wait;   // wait
+    sys_vec[SYS_TERMINATE] = syscall_terminate; // terminate
     sys_vec[SYS_SEMCREATE] = SemCreate; // semcreate
     sys_vec[SYS_SEMP] = SemP;           // semp
     sys_vec[SYS_SEMV] = SemV;           // semv
@@ -101,19 +103,18 @@ static void syscall_spawn(sysargs *args)
     char *arg;
     int stack_size;
     int priority;
-    int name;
+    char *name;
     // more local variables
     if (is_zapped)
     {
-        Terminate(1);   // terminate the process
+        //Terminate(1);   // terminate the process
     }
 
     func = args->arg1;
     arg = args->arg2;
     stack_size = (int) args->arg3;
-    // more code to extract system call arguments as well as exceptional handling
-    //name = ??
-    //priority = ??
+    priority = args->arg4; 
+    name = (char *)args->arg5;
 
     // call another function to modularize the code better
     int kid_pid = spawn_real(name, func, arg, stack_size, priority);    // spawn the process
@@ -169,6 +170,11 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     return pid;
 }
 
+int syscall_wait(int *status)
+{
+    wait_real(status);
+}
+
 extern int  wait_real(int *status)
 {
     join(status);
@@ -176,8 +182,21 @@ extern int  wait_real(int *status)
     return 0;
 }
 
+void syscall_terminate(int exit_code)
+{
+    syscall_terminate(exit_code);
+}
+
 extern void terminate_real(int exit_code)
 {
+    /* Terminates the invoking process and all its children and synchronizes with its parent’s Wait
+    system call. The child Processes are terminated by zap’ing them. When all user processes have
+    terminated, your operating system should shut down. Thus, after start3 terminates (or
+    returns) all user processes should have terminated. Since there should then be no runnable or
+    blocked processes, the kernel will halt.
+    */
+
+
     
 }
 
