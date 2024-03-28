@@ -18,7 +18,7 @@ void check_kernel_mode(char string[]);
 int launchUserMode(char *arg);
 static void syscall_spawn(sysargs *args);
 int syscall_wait(int *status);
-void syscall_terminate(int exit_code);
+void syscall_terminate(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -182,9 +182,10 @@ extern int  wait_real(int *status)
     return 0;
 }
 
-void syscall_terminate(int exit_code)
+void syscall_terminate(sysargs *args)
 {
-    syscall_terminate(exit_code);
+    int exit_code = (void *) args->arg1;
+    terminate_real(exit_code);
 }
 
 extern void terminate_real(int exit_code)
@@ -196,6 +197,11 @@ extern void terminate_real(int exit_code)
     blocked processes, the kernel will halt.
     */
 
+   // Zap each child
+
+   // Terminate this process (zap?)
+
+   // At this point, all user processes should have terminated - halt? or done automatically?
 
     
 }

@@ -2,8 +2,9 @@
 #pragma once
 
 typedef struct process process;
-typedef struct process* pProcess;
+typedef struct process *pProcess;
 typedef struct semaphore semaphore;
+typedef struct children *children;  // Linked list of children processes for any process
 
 struct process {                        // A process
    pProcess pNext;            // Next pointer
@@ -12,16 +13,24 @@ struct process {                        // A process
    int      pid;
    int      parentPid;
    int      (*entryPoint)(char *); // entry point
-   char     name[MAXNAME];       // name
+   char     name[MAXNAME];    // name
    int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
-   int      privateMbox;
-   int      startupMbox;        // - do we need to create a mailbox table too? 
+   int      privateMbox;      // Private mailbox ID
+   int      startupMbox;      // Startup mailbox ID
+
+   children children;         // Linked list of children processes
 };
 
 struct semaphore {   // A semaphore
    int      sid;     // Semaphore ID
    int      count;   // Semaphore count
    // waiting list of processes waiting on this semaphore?
+};
+
+struct children {       // List of children processes
+   pProcess pHead;      // Pointer to head process
+   pProcess pTail;      // Pointer to tail process
+   int      count;      // Count of waiting processes
 };
 
 
