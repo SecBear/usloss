@@ -15,7 +15,7 @@ struct process {                        // A process
    char     name[MAXNAME];       // name
    int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;
-   int      start_mbox;        // - do we need to create a mailbox table too? 
+   int      startupMbox;        // - do we need to create a mailbox table too? 
 };
 
 struct semaphore {   // A semaphore

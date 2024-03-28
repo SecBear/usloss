@@ -16,7 +16,7 @@ static int spawn_launch(char *arg);
 static void nullsys3(sysargs *args_ptr);
 void check_kernel_mode(char string[]);
 int launchUserMode(char *arg);
-static void spawn(sysargs *args);
+static void syscall_spawn(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -55,6 +55,10 @@ start2(char *arg)
     int_vec[SYSCALL_INT] = syscall_handler;
 
     // TODO: Initialize Proc Table
+    for (int i = 0; i < MAXPROC; ++i)
+    {
+        ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
+    }
     // TODO: Initialize semaphore table
 
 
@@ -136,6 +140,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     int my_location; /* parent's location in process table */
     int kid_location; /* child's location in process table */
     int result;
+    int startupMbox;
 
     process *kidptr, *prevptr;
     my_location = getpid() % MAXPROC;
@@ -148,11 +153,12 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         int procSlot = pid % MAXPROC;
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
-        ProcTable[procSlot].entryPoint = func;  // give launchUserMode the function call 
+        ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
+        MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
     //Then synchronize with the child using a mailbox
-        result = MboxSend(ProcTable[kid_location].start_mbox, &my_location, sizeof(int));
+      //  result = MboxSend(ProcTable[kid_location].startMbox, &my_location, sizeof(int));
 
     //more to add
     // add child to proctable
@@ -185,11 +191,12 @@ int launchUserMode(char *arg)
     pid = getpid();
     procSlot = pid % MAXPROC;
 
+    // If this process pre-empts the procTable initialization, wait until that's done
+    MboxReceive(ProcTable[procSlot].startupMbox, NULL, 0);  // Blocks until a message is in the startup mbox
+
     // set user mode using get_psr and set_psr
     psr = psr_get();
-
     psr = psr & ~PSR_CURRENT_MODE;   // Unset the current mode bit (to user mode)
-
     psr_set(psr);
 
     // run the entry point
