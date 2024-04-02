@@ -227,7 +227,7 @@ int launchUserMode(char *arg)
     // run the entry point
     result = ProcTable[procSlot].entryPoint(arg);
 
-    return result;
+    Terminate(result); // where does this return to? nowhere it seems
 }
 
 static int spawn_launch(char *arg)
