@@ -202,7 +202,7 @@ extern void terminate_real(int exit_code)
    // Terminate this process (zap?)
 
    // At this point, all user processes should have terminated - halt? or done automatically?
-
+    quit(exit_code);    // placeholder for now
     
 }
 
