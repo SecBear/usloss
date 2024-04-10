@@ -19,6 +19,7 @@ int launchUserMode(char *arg);
 static void syscall_spawn(sysargs *args);
 int syscall_wait(int *status);
 void syscall_terminate(sysargs *args);
+void syscall_semcreate(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -45,7 +46,7 @@ start2(char *arg)
     sys_vec[SYS_SPAWN] = syscall_spawn; // spawn system call handler 
     sys_vec[SYS_WAIT] = syscall_wait;   // wait
     sys_vec[SYS_TERMINATE] = syscall_terminate; // terminate
-    sys_vec[SYS_SEMCREATE] = SemCreate; // semcreate
+    sys_vec[SYS_SEMCREATE] = syscall_semcreate; // semcreate
     sys_vec[SYS_SEMP] = SemP;           // semp
     sys_vec[SYS_SEMV] = SemV;           // semv
     sys_vec[SYS_SEMFREE] = SemFree;     // semfree
@@ -202,7 +203,7 @@ extern void terminate_real(int exit_code)
    // Terminate this process (zap?)
 
    // At this point, all user processes should have terminated - halt? or done automatically?
-    quit(exit_code);    // placeholder for now
+    quit(exit_code);
     
 }
 
@@ -265,9 +266,14 @@ static int spawn_launch(char *arg)
     return 0;
 } /* spawn_launch */
 
-void semcreate()
+void syscall_semcreate(sysargs *args)
 {
+    return 0; // placeholder
+}
 
+int semcreate_real(int init_value)
+{
+    return 0;  // placeholder
 }
 
 
