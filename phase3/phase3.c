@@ -62,8 +62,15 @@ start2(char *arg)
     {
         ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
     }
-    // TODO: Initialize semaphore table
 
+    // TODO: Initialize semaphore table
+    for (int i = 0; i < MAXSEMS; i++)
+    {
+        SemTable[i].count = 0;
+        SemTable[i].mbox = NULL;
+        SemTable[i].sid = NULL;
+        SemTable[i].status = SEM_FREE;  // indicates a semaphore is free
+    }
 
     /*
      * Create first user-level process and wait for it to finish.
@@ -266,18 +273,35 @@ static int spawn_launch(char *arg)
     return 0;
 } /* spawn_launch */
 
-void syscall_semcreate(sysargs *args)
-{
-    return 0; // placeholder
+
+void syscall_semcreate(sysargs *args) {   //useless function having issues with result
+    int init_value = (int)(long)args->arg1;
+
+    int sem_id = semcreate_real(init_value);
+    if (sem_id >= 0) {
+        // Success: Return semaphore ID and set result to 0
+        args->arg1 = (void *)(long)sem_id; // Correctly returning semaphore ID
+        args->arg4 = (void *)0;            // Indicating success
+    } else {
+        // Failure: Indicate failure in creating a semaphore
+        args->arg1 = (void *)(long)-1;     // Semaphore not created, so returning -1
+        args->arg4 = (void *)(long)-1;     // Indicate failure
+    }
 }
 
-int semcreate_real(int init_value)
-{
-    return 0;  // placeholder
+int semcreate_real(int init_value) {     //this is dumb and needs fixing
+    for (int i = 0; i < MAXSEMS; i++) {
+        if (SemTable[i].status == SEM_FREE) {
+            SemTable[i].status = SEM_USED;
+            SemTable[i].count = init_value;
+            // Initialize other necessary fields, e.g., queue or mailbox for blocked processes
+            return i; // Return the index of the semaphore
+        }
+    }
+    return -1; // No free semaphore found
 }
 
-
-// increment sempahore
+// increment semaphore
 int  semv_real(int semaphore)
 {
     // What if the semaphore value >0

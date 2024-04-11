@@ -24,6 +24,8 @@ struct process {                        // A process
 struct semaphore {   // A semaphore
    int      sid;     // Semaphore ID
    int      count;   // Semaphore count
+   int      status;  // Semaphore status
+   int      mbox;    // Semaphore mailbox ID
    // waiting list of processes waiting on this semaphore?
 };
 
@@ -37,3 +39,5 @@ struct children {       // List of children processes
 // constants
 #define SYS_SEMCREATE 11                // choosing 11 at random, no purpose
 #define ITEM_IN_USE 1
+#define SEM_FREE 5            // Indicates a sempaphore is free
+#define SEM_USED 6
