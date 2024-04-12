@@ -23,7 +23,7 @@ struct process {                        // A process
 
 struct semaphore {   // A semaphore
    int      sid;     // Semaphore ID
-   int      count;   // Semaphore count
+   int      value;   // Semaphore value
    int      status;  // Semaphore status
    int      mbox;    // Semaphore mailbox ID
    // waiting list of processes waiting on this semaphore?

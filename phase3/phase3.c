@@ -20,10 +20,14 @@ static void syscall_spawn(sysargs *args);
 int syscall_wait(int *status);
 void syscall_terminate(sysargs *args);
 void syscall_semcreate(sysargs *args);
+int GetNextSemID();
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
 semaphore SemTable[MAXSEMS];       // Array of seamphores
+
+int numSems = 0;                // Global count of semaphores
+int next_sem_id = 0;            // Integer to hold the next semaphore ID
 
 // start2
 start2(char *arg)
@@ -66,7 +70,7 @@ start2(char *arg)
     // TODO: Initialize semaphore table
     for (int i = 0; i < MAXSEMS; i++)
     {
-        SemTable[i].count = 0;
+        SemTable[i].value = NULL;
         SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
         SemTable[i].status = SEM_FREE;  // indicates a semaphore is free
@@ -290,15 +294,42 @@ void syscall_semcreate(sysargs *args) {   //useless function having issues with 
 }
 
 int semcreate_real(int init_value) {     //this is dumb and needs fixing
-    for (int i = 0; i < MAXSEMS; i++) {
-        if (SemTable[i].status == SEM_FREE) {
-            SemTable[i].status = SEM_USED;
-            SemTable[i].count = init_value;
-            // Initialize other necessary fields, e.g., queue or mailbox for blocked processes
-            return i; // Return the index of the semaphore
-        }
-    }
-    return -1; // No free semaphore found
+
+    // Get the next semaphore ID
+    int semID = GetNextSemID();
+
+    // Initialize semaphore values
+    SemTable[semID].status = SEM_USED;
+    SemTable[semID].value = init_value;
+    // Create semaphore mailbox
+    
+    numSems++;  // Increment max number of sems
+    
+    return semID;
+}
+
+int GetNextSemID()
+{
+   int new_sem_id = -1;                  // Initialize new mbox id to -1
+   int semSlot = next_sem_id % MAXMBOX; // Assign new mailbox to next_mbox_id mod MAXMBOX (to wrap around to 1, 2, 3, etc. from max)
+
+   if (numSems < MAXSEMS) // If there's room for another process
+   {
+      // Loop through until we find an empty slot
+      while (SemTable[semSlot].status != SEM_FREE && semSlot != next_sem_id)
+      {
+         next_sem_id++;
+         semSlot = next_sem_id % MAXSEMS;
+      }
+
+      if (SemTable[semSlot].status == SEM_FREE)
+      {
+         new_sem_id = next_sem_id;                  // Assigns new_mbox_id to current next_mbox_id value
+         next_sem_id = (next_sem_id + 1) % MAXSEMS; // Increment next_mbox_id for the next search
+      }
+   }
+
+   return new_sem_id;
 }
 
 // increment semaphore
