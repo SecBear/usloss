@@ -5,6 +5,7 @@ typedef struct process process;
 typedef struct process *pProcess;
 typedef struct semaphore semaphore;
 typedef struct children *children;  // Linked list of children processes for any process
+typedef struct waiting *waiting;    // Linked list of waiting processes on a semaphore
 
 struct process {                        // A process
    pProcess pNext;            // Next pointer
@@ -26,15 +27,22 @@ struct semaphore {   // A semaphore
    int      value;   // Semaphore value
    int      status;  // Semaphore status
    int      mbox;    // Semaphore mailbox ID
-   // waiting list of processes waiting on this semaphore?
+   int      mutex;   // Mutex for manipulating semaphore's value
+
+   waiting  waiting; // waiting list of processes waiting on this semaphore
 };
 
 struct children {       // List of children processes
    pProcess pHead;      // Pointer to head process
    pProcess pTail;      // Pointer to tail process
-   int      count;      // Count of waiting processes
+   int      count;      // Count of children processes
 };
 
+struct waiting {        // List of waiting processes
+   pProcess pHead;      // Pointer to head process
+   pProcess pTail;      // Pointer to tail process
+   int      count;      // Count of waiting processes
+};
 
 // constants
 #define SYS_SEMCREATE 11                // choosing 11 at random, no purpose

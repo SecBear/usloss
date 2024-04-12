@@ -69,6 +69,7 @@ start2(char *arg)
     for (int i = 0; i < MAXPROC; ++i)
     {
         ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
+        ProcTable[i].privateMbox = MboxCreate(0,0);     // Initialize private mailboxes
     }
 
     // TODO: Initialize semaphore table
@@ -171,7 +172,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
         ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
-        MboxCondSend(ProcTable[procSlot].startupMbox);  // Tell process to start running (unblock in launchUserMode)
+        MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
     //Then synchronize with the child using a mailbox
@@ -305,7 +306,8 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
     // Initialize semaphore values
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
-    SemTable[semID].mbox = MboxCreate(0,0); // Create semaphore mailbox
+    SemTable[semID].mbox = MboxCreate(0,0);     // Create semaphore's private mailbox
+    SemTable[semID].mutex = MboxCreate(0,0);    // Create semaphore's mutex
     
     numSems++;  // Increment max number of sems
     
@@ -347,6 +349,8 @@ void syscall_semv(sysargs *args)
 int  semv_real(int semID)
 {
     semaphore *sem = &SemTable[semID];
+    int pid = getpid();                 // Get the pid of current process
+    process *current_proc = &ProcTable[pid]; // Get the current process
 
     // What if the semaphore value >0
     // What if the semaphore value ==0 
@@ -354,13 +358,22 @@ int  semv_real(int semID)
 
     // Is there any process blocked on the semaphore because of P operation?
     if (sem->status = SEM_BLOCKED)
-    {
-        MboxCondSend(sem->mbox); // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
-        sem->status = SEM_USED;
+    {  
+        // Conditional send on that process's private mailbox
+        process *pNext = sem->waiting->pHead;
+        while (pNext != NULL)   // traverse through waitlist to find process
+        {   
+            popWaitList(sem->waiting);  // Remove process from waiting list
+            sem->status = SEM_USED;     // Set the semaphore status to used again
+            MboxCondSend(pNext->privateMbox, NULL, 0); // Wake up the blocked proc
+            break;
+        }
     }
 
     // No process is blocked on it
+    // MboxSend(sem->mutex, NULL, 0);       // Get the mutex
     sem->value++;
+    // MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
 
     return 0; // success
 }
@@ -374,22 +387,28 @@ void syscall_semp(sysargs *args)
 // decrement semaphore
 int  semp_real(int semID)
 {
-    semaphore *sem = &SemTable[semID];
+    semaphore *sem = &SemTable[semID];  // Get the semaphore
+    int pid = getpid();                 // Get the pid of current process
+    process *process = &ProcTable[pid]; // Get the current process
 
     //What if the semaphore value >0
     if (sem->value > 0)
     {
         // we'll decrement 
-        sem->value--;
+     //   MboxSend(sem->mutex, NULL, 0);    //obtain mutex
+        sem->value--;   // decrement semaphore value
+      //  MboxReceive(sem->mutex, NULL, 0);    // release mutex
     }
     else
     {
         // Otherwise
-        // MboxReceive used to block on the private mailbox of the semaphore
-        MboxReceive(sem->mbox, NULL, 0);
+        // MboxReceive used to block on the private mailbox of the semaphore or do we receive on the current process's mailbox?
+        MboxReceive(process->privateMbox, NULL, 0);
 
         // After unblocked
+       // MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
+        //MboxReceive(sem->mutex, NULL, 0);    // release mutex
 
         // if the semaphore is being freed, need to synchronize with the process that
         // is freeing the semaphore
@@ -401,24 +420,33 @@ int  semp_real(int semID)
 
 void syscall_semfree(sysargs *args)
 {
-    semaphore *sem = args->arg1;    // grab semaphore
-    int result = semfree_real(sem);              // call semfree_real
+    int semID = args->arg1;             // grab sem ID
+    int result = semfree_real(semID);     // call semfree_real
     args->arg4 = result;
 }
 
-int semfree_real(semaphore *sem)
+int semfree_real(int semID)
 {
+    semaphore *sem = &SemTable[semID];  // Get semaphore
+    int pid = getpid();                 // Get the pid of current process
+    process *process = &ProcTable[pid]; // Get the current process
+
     // error checking
     if (sem == NULL)
     {
         return -1;
     }
+
+    // obtain mutex
+
     // any processes waiting on the semaphore?
     if (sem->status == SEM_BLOCKED)
     {
-        
-    }
         // terminate them
+    }
+        
+
+    // release mutex
     
 }
 
@@ -468,12 +496,6 @@ void check_kernel_mode(char string[])
    }
 }
 
-// Add newly created semaphore to semaphore list
-int AddToSemList();
-
-// Pop semaphore off semaphore list
-int PopSemList();
-
 // Get processes pid
 int syscall_getpid(sysargs *args)
 {
@@ -481,3 +503,4 @@ int syscall_getpid(sysargs *args)
     args->arg1 = pid;
     return pid;
 }
+
