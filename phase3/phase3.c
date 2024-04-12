@@ -24,6 +24,7 @@ int GetNextSemID();
 void syscall_semp(sysargs *args);
 void syscall_semv(sysargs *args);
 int syscall_getpid(sysargs *args);
+void syscall_semfree(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -56,7 +57,7 @@ start2(char *arg)
     sys_vec[SYS_SEMCREATE] = syscall_semcreate; // semcreate
     sys_vec[SYS_SEMP] = syscall_semp;           // semp
     sys_vec[SYS_SEMV] = syscall_semv;           // semv
-    sys_vec[SYS_SEMFREE] = SemFree;     // semfree
+    sys_vec[SYS_SEMFREE] = syscall_semfree;     // semfree
     sys_vec[SYS_GETTIMEOFDAY] = GetTimeofDay; // get time of day?
     sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
     sys_vec[SYS_GETPID] = syscall_getpid;       // get pid?
@@ -170,7 +171,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
         ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
-        MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
+        MboxCondSend(ProcTable[procSlot].startupMbox);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
     //Then synchronize with the child using a mailbox
@@ -354,7 +355,7 @@ int  semv_real(int semID)
     // Is there any process blocked on the semaphore because of P operation?
     if (sem->status = SEM_BLOCKED)
     {
-        MboxCondSend(sem->mbox, NULL, 0); // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
+        MboxCondSend(sem->mbox); // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
         sem->status = SEM_USED;
     }
 
@@ -396,6 +397,29 @@ int  semp_real(int semID)
     }
 
    return 0;    // success
+}
+
+void syscall_semfree(sysargs *args)
+{
+    semaphore *sem = args->arg1;    // grab semaphore
+    int result = semfree_real(sem);              // call semfree_real
+    args->arg4 = result;
+}
+
+int semfree_real(semaphore *sem)
+{
+    // error checking
+    if (sem == NULL)
+    {
+        return -1;
+    }
+    // any processes waiting on the semaphore?
+    if (sem->status == SEM_BLOCKED)
+    {
+        
+    }
+        // terminate them
+    
 }
 
 // from phase 2
