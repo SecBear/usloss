@@ -32,6 +32,7 @@ semaphore SemTable[MAXSEMS];       // Array of seamphores
 
 int numSems = 0;                // Global count of semaphores
 int next_sem_id = 0;            // Integer to hold the next semaphore ID
+int numWaitingProc = 0;         // Integer to hold the number of waiting processes
 
 // start2
 start2(char *arg)
@@ -79,6 +80,11 @@ start2(char *arg)
         SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
         SemTable[i].status = SEM_FREE;  // indicates a semaphore is free
+
+        SemTable[i].waiting = malloc(sizeof(struct waiting)); // Allocate memory for the waiting list
+        SemTable[i].waiting->pHead = NULL;  // Initialize Waiting list pHead to NULL
+        SemTable[i].waiting->pTail = NULL;  // Initialize Waiting list pTail to NULL
+        SemTable[i].waiting->count = 0;     // Initialize waiting list count to 0
     }
 
     /*
@@ -356,8 +362,13 @@ int  semv_real(int semID)
     // What if the semaphore value ==0 
         // Increment in both cases on semv (?)
 
+    // No process is blocked on it
+    // MboxSend(sem->mutex, NULL, 0);       // Get the mutex
+    sem->value++;
+    // MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
+
     // Is there any process blocked on the semaphore because of P operation?
-    if (sem->status = SEM_BLOCKED)
+    if (sem->waiting->count > 0)
     {  
         // Conditional send on that process's private mailbox
         process *pNext = sem->waiting->pHead;
@@ -369,11 +380,6 @@ int  semv_real(int semID)
             break;
         }
     }
-
-    // No process is blocked on it
-    // MboxSend(sem->mutex, NULL, 0);       // Get the mutex
-    sem->value++;
-    // MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
 
     return 0; // success
 }
@@ -402,8 +408,8 @@ int  semp_real(int semID)
     else
     {
         // Otherwise
-        // MboxReceive used to block on the private mailbox of the semaphore or do we receive on the current process's mailbox?
-        MboxReceive(process->privateMbox, NULL, 0);
+        AddWaitList(sem->waiting);                  // Add process to wait list
+        MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
 
         // After unblocked
        // MboxSend(sem->mutex, NULL, 0);    // obtain mutex
@@ -504,3 +510,112 @@ int syscall_getpid(sysargs *args)
     return pid;
 }
 
+/* ------------------------------------------------------------------------
+   Name - AddToWaitList
+   Purpose - Adds the current process to the specified waitlist.
+   Parameters - int mbox_id: the ID of the mailbox.
+                int status: the status to assign to the process.
+                void *msg_ptr: pointer to the message (if any) associated with the process.
+                int msg_size: size of the message (if any).
+   Returns - 1 if the process is successfully added to the waiting list, 0 otherwise.
+   Side Effects - May increase the count of waiting processes for the mailbox.
+   ----------------------------------------------------------------------- */
+// Add the current process to a mailbox's list of watiing processes along with its message if it's waiting to send
+int AddWaitList(waiting list)
+{
+   int pid = getpid();                          // Get process id
+   process *waiting_process = &ProcTable[pid];  // Get process
+
+   // Add process to mailbox's waiting list
+   if (pid == NULL)
+   {
+      // Invalid process pointer
+      return 0;
+   }
+
+   // Check if the process is already on the list
+   process *current = list->pHead;
+   if (current != NULL)
+   {
+      if (current->pid == pid)
+      {
+         // Process is already in the list
+         return 0;
+      }
+      current = current->pNext; // Move to next process
+   }
+
+   // Update new waiting process's pointers
+   waiting_process->pNext = NULL;
+   waiting_process->pPrev = list->pTail;
+
+   // Update the previous tail's next pointer to new process
+   if (list->pTail != NULL)
+   {
+      list->pTail->pNext = waiting_process;
+   }
+
+   // New tail is the new process
+   list->pTail = waiting_process;
+
+   // If the list is empty, make new process the head
+   if (list->pHead == NULL)
+   {
+      list->pHead = waiting_process;
+   }
+
+   // Increment the list count
+   list->count++;
+
+   // Increment number of waiting processes
+   numWaitingProc++;
+
+   return 1;
+}
+
+/* ------------------------------------------------------------------------
+   Name - popWaitList
+   Purpose - Removes the first process from the waiting list of a specified mailbox.
+   Parameters - int mbox_id: the ID of the mailbox.
+   Returns - 1 if a process is successfully removed, 0 if the waiting list is empty.
+   Side Effects - Decreases the count of waiting processes for the mailbox.
+   ----------------------------------------------------------------------- */
+// PopList functions to pop the first item added to the linked list (head)
+int popWaitList(waiting list)
+{
+   check_kernel_mode("popWaitList\n");
+
+   // Check if list is empty
+   if (list->count == 0)
+   {
+      return NULL;
+   }
+
+   // Get the oldest item and replace list's head
+   process *poppedProc = list->pHead; // get the head of the list (oldest item)
+   list->pHead = poppedProc->pNext;           // update the head to the next process
+
+   // Update head/tail pointers
+   if (list->pHead == NULL)
+   {
+      list->pTail = NULL; // If the head becomes NULL (no more items), update the tail as well
+   }
+   else
+   {
+      list->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
+   }
+
+   // Update the popped process's pointers
+   if (poppedProc->pNext != NULL)
+   {
+      poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
+   }
+
+   // Decrement the count of processes in the list
+   list->count--;
+
+   // Decrement count of waiting process
+   numWaitingProc--;
+
+   return 1;
+}
