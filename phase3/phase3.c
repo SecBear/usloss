@@ -313,7 +313,7 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
     SemTable[semID].mbox = MboxCreate(0,0);     // Create semaphore's private mailbox
-    SemTable[semID].mutex = MboxCreate(0,0);    // Create semaphore's mutex
+    SemTable[semID].mutex = MboxCreate(1,0);    // Create semaphore's mutex
     
     numSems++;  // Increment max number of sems
     
@@ -358,14 +358,10 @@ int  semv_real(int semID)
     int pid = getpid();                 // Get the pid of current process
     process *current_proc = &ProcTable[pid]; // Get the current process
 
-    // What if the semaphore value >0
-    // What if the semaphore value ==0 
-        // Increment in both cases on semv (?)
-
-    // No process is blocked on it
-    // MboxSend(sem->mutex, NULL, 0);       // Get the mutex
+    // Increment the value
+    MboxSend(sem->mutex, NULL, 0);       // Get the mutex
     sem->value++;
-    // MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
+    MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
 
     // Is there any process blocked on the semaphore because of P operation?
     if (sem->waiting->count > 0)
@@ -397,24 +393,24 @@ int  semp_real(int semID)
     int pid = getpid();                 // Get the pid of current process
     process *process = &ProcTable[pid]; // Get the current process
 
-    //What if the semaphore value >0
+    // if the semaphore value >0
     if (sem->value > 0)
     {
         // we'll decrement 
-     //   MboxSend(sem->mutex, NULL, 0);    //obtain mutex
+        MboxSend(sem->mutex, NULL, 0);    //obtain mutex
         sem->value--;   // decrement semaphore value
-      //  MboxReceive(sem->mutex, NULL, 0);    // release mutex
+        MboxReceive(sem->mutex, NULL, 0);    // release mutex
     }
     else
     {
-        // Otherwise
+        // Otherwise, add process to waiting list (we're trying to decrement below 0)
         AddWaitList(sem->waiting);                  // Add process to wait list
         MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
 
         // After unblocked
-       // MboxSend(sem->mutex, NULL, 0);    // obtain mutex
+        MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
-        //MboxReceive(sem->mutex, NULL, 0);    // release mutex
+        MboxReceive(sem->mutex, NULL, 0);    // release mutex
 
         // if the semaphore is being freed, need to synchronize with the process that
         // is freeing the semaphore
