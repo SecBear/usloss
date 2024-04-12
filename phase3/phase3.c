@@ -23,6 +23,7 @@ void syscall_semcreate(sysargs *args);
 int GetNextSemID();
 void syscall_semp(sysargs *args);
 void syscall_semv(sysargs *args);
+int syscall_getpid(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -58,7 +59,7 @@ start2(char *arg)
     sys_vec[SYS_SEMFREE] = SemFree;     // semfree
     sys_vec[SYS_GETTIMEOFDAY] = GetTimeofDay; // get time of day?
     sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
-    sys_vec[SYS_GETPID] = GetPID;       // get pid?
+    sys_vec[SYS_GETPID] = syscall_getpid;       // get pid?
     // more?
 
     int_vec[SYSCALL_INT] = syscall_handler;
@@ -397,8 +398,6 @@ int  semp_real(int semID)
    return 0;    // success
 }
 
-
-
 // from phase 2
 // Syscall Handler
 void syscall_handler(int dev, void *punit) 
@@ -450,3 +449,11 @@ int AddToSemList();
 
 // Pop semaphore off semaphore list
 int PopSemList();
+
+// Get processes pid
+int syscall_getpid(sysargs *args)
+{
+    int pid = getpid();
+    args->arg1 = pid;
+    return pid;
+}
