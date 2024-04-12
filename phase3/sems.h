@@ -26,7 +26,7 @@ struct semaphore {   // A semaphore
    int      sid;     // Semaphore ID
    int      value;   // Semaphore value
    int      status;  // Semaphore status
-   int      mbox;    // Semaphore mailbox ID
+   int      mbox;    // Semaphore mailbox ID (CURRENTLY NOT USED AT ALL)
    int      mutex;   // Mutex for manipulating semaphore's value
 
    waiting  waiting; // waiting list of processes waiting on this semaphore
