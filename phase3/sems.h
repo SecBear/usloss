@@ -41,3 +41,4 @@ struct children {       // List of children processes
 #define ITEM_IN_USE 1
 #define SEM_FREE 5            // Indicates a sempaphore is free
 #define SEM_USED 6
+#define SEM_BLOCKED 7         // Indicates a semaphore is blocked
