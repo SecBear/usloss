@@ -21,6 +21,8 @@ int syscall_wait(int *status);
 void syscall_terminate(sysargs *args);
 void syscall_semcreate(sysargs *args);
 int GetNextSemID();
+void syscall_semp(sysargs *args);
+void syscall_semv(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -51,8 +53,8 @@ start2(char *arg)
     sys_vec[SYS_WAIT] = syscall_wait;   // wait
     sys_vec[SYS_TERMINATE] = syscall_terminate; // terminate
     sys_vec[SYS_SEMCREATE] = syscall_semcreate; // semcreate
-    sys_vec[SYS_SEMP] = SemP;           // semp
-    sys_vec[SYS_SEMV] = SemV;           // semv
+    sys_vec[SYS_SEMP] = syscall_semp;           // semp
+    sys_vec[SYS_SEMV] = syscall_semv;           // semv
     sys_vec[SYS_SEMFREE] = SemFree;     // semfree
     sys_vec[SYS_GETTIMEOFDAY] = GetTimeofDay; // get time of day?
     sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
@@ -332,6 +334,12 @@ int GetNextSemID()
    return new_sem_id;
 }
 
+
+void syscall_semv(sysargs *args)
+{
+
+}
+
 // increment semaphore
 int  semv_real(int semaphore)
 {
@@ -342,6 +350,11 @@ int  semv_real(int semaphore)
     // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
 
     // No process is blocked on it
+}
+
+void syscall_semp(sysargs *args)
+{
+
 }
 
 // decrement semaphore
