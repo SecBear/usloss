@@ -334,10 +334,11 @@ int GetNextSemID()
    return new_sem_id;
 }
 
-
+// Increment semaphore
 void syscall_semv(sysargs *args)
 {
-
+    int semID = (int)args->arg1;    // parse argument (semaphore ID)
+    semv_real(semID);               // call semv_real with semID
 }
 
 // increment semaphore
@@ -364,8 +365,8 @@ int  semv_real(int semID)
 
 void syscall_semp(sysargs *args)
 {
-
-
+    int semID = (int)args->arg1;    // parse argument (semaphore ID)
+    semp_real(semID);               // call semp_real with semID
 }
 
 // decrement semaphore
