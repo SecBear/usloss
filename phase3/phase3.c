@@ -303,7 +303,7 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
     // Initialize semaphore values
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
-    // Create semaphore mailbox
+    SemTable[semID].mbox = MboxCreate(0,0); // Create semaphore mailbox
     
     numSems++;  // Increment max number of sems
     
@@ -341,32 +341,59 @@ void syscall_semv(sysargs *args)
 }
 
 // increment semaphore
-int  semv_real(int semaphore)
+int  semv_real(int semID)
 {
+    semaphore *sem = &SemTable[semID];
+
     // What if the semaphore value >0
-    // What if the semaphore value ==0
+    // What if the semaphore value ==0 
+        // Increment in both cases on semv (?)
 
     // Is there any process blocked on the semaphore because of P operation?
-    // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
+    if (sem->status = SEM_BLOCKED)
+    {
+        MboxCondSend(sem->mbox, NULL, 0); // MboxCondSend can be used to check the semaphore’s private mailbox used for blocking
+        sem->status = SEM_USED;
+    }
 
     // No process is blocked on it
+    sem->value++;
+
+    return 0; // success
 }
 
 void syscall_semp(sysargs *args)
 {
 
+
 }
 
 // decrement semaphore
-int  semp_real(int semaphore)
+int  semp_real(int semID)
 {
+    semaphore *sem = &SemTable[semID];
+
     //What if the semaphore value >0
-    // Otherwise
-    // MboxReceive used to block on the private mailbox of the semaphore
-    // After unblocked
-    // if the semaphore is being freed, need to synchronize with the process that
-    // is freeing the semaphore
-    // Hint: use another zero-slot mailbox
+    if (sem->value > 0)
+    {
+        // we'll decrement 
+        sem->value--;
+    }
+    else
+    {
+        // Otherwise
+        // MboxReceive used to block on the private mailbox of the semaphore
+        MboxReceive(sem->mbox, NULL, 0);
+
+        // After unblocked
+        sem->value--;   // Still decrement?
+
+        // if the semaphore is being freed, need to synchronize with the process that
+        // is freeing the semaphore
+        // Hint: use another zero-slot mailbox
+    }
+
+   return 0;    // success
 }
 
 
