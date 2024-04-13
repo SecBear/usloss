@@ -435,11 +435,11 @@ int  semp_real(int semID)
         // After unblocked
         if (sem->status = SEM_FREE) // If we've been free'd
         {
-            Terminate(pid);         // Terminate
+            terminate_real(pid);         // Terminate
         }
         if (is_zapped)  // If we've been zapped
         {
-            Terminate(pid);
+            terminate_real(pid);
         }
         MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
@@ -491,7 +491,7 @@ int semfree_real(int semID)
         while (current != NULL)
         {
             popWaitList(sem->waiting);
-            MboxCondSend(proc->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
+            MboxCondSend(current->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
             current = current->pNext;
         }
     }
