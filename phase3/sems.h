@@ -14,11 +14,12 @@ struct process {                        // A process
    int      pid;
    int      parentPid;
    int      (*entryPoint)(char *); // entry point
-   char     name[MAXNAME];    // name
+   char     *name;            // name
+   int      priority;         // Process's priority
    int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;      // Private mailbox ID
    int      startupMbox;      // Startup mailbox ID
-   int      cpu_time;          // Time on CPU
+   int      cpu_time;         // Time on CPU
    int      tsStart;          // Time the process started executing
    int      tsEnd;            // Time when process stopped executing
    int      termCode;         // Termination code

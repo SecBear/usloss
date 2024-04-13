@@ -186,8 +186,14 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
         ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
+        ProcTable[procSlot].name = name;
+        ProcTable[procSlot].priority = priority;
         ProcTable[procSlot].status = STATUS_RUNNING;    // Set process status to running
         ProcTable[procSlot].tsStart = sys_clock();      // Set process start time
+
+        // Add process to parent's children list
+        // addchildlist(child_proc, my_child_list)
+
         MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
@@ -278,6 +284,10 @@ extern void terminate_real(int exit_code)
    // Update process's cpu time
    updateCpuTime(current);
    current->status = STATUS_TERMINATED; // Set status to terminated
+   if (current->termCode != 1)  // check if termination code is already set by semfree
+    {
+        current->termCode = exit_code;
+    }
 
     // if process has children
     if (current->children->count > 0)
@@ -768,3 +778,4 @@ int popWaitList(waiting list)
 
    return 1;
 }
+
