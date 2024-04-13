@@ -334,9 +334,10 @@ int GetNextSemID()
    if (numSems < MAXSEMS) // If there's room for another process
    {
       // Loop through until we find an empty slot
-      while (SemTable[semSlot].status != SEM_UNUSED && semSlot != next_sem_id)
+      while (SemTable[semSlot].status != SEM_UNUSED) //&& semSlot != next_sem_id)
       {
          next_sem_id++;
+         next_sem_id = next_sem_id % MAXMBOX;
          semSlot = next_sem_id % MAXSEMS;
       }
 
@@ -470,6 +471,8 @@ int semfree_real(int semID)
             MboxCondSend(proc->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
         }
     }
+
+    sem->status = SEM_UNUSED;   // Set status back to unused 
 
     // release mutex
     MboxReceive(sem->mutex, NULL, 0);
