@@ -241,10 +241,14 @@ int syscall_wait(sysargs *args)
         {
             args->arg4 = (void *)0;     // process has children
         }
-        else
-        {
-            args->arg4 = (void *)-1;    // process has no children
-        }
+    }
+    else if (result == -2)
+    {
+        // process has no children
+    }
+    else if (result == -1)
+    {
+        // process was zapped while waiting for child to quit
     }
 }
 
@@ -274,7 +278,6 @@ extern void terminate_real(int exit_code)
    // Update process's cpu time
    updateCpuTime(current);
    current->status = STATUS_TERMINATED; // Set status to terminated
-   current->termCode = exit_code;
 
     // if process has children
     if (current->children->count > 0)
@@ -462,7 +465,8 @@ int  semp_real(int semID)
         process->tsStart = sys_clock();             // Set the new start time to the resume time
 
         if (sem->status = SEM_FREE) // If we've been free'd
-        {
+        {   
+            process->termCode = 1;        // Set status to 1 - there are processes blocked on the semaphore
             terminate_real(pid);         // Terminate
         }
         if (is_zapped)  // If we've been zapped
