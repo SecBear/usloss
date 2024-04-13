@@ -185,6 +185,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
         ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
+        ProcTable[procSlot].status = STATUS_RUNNING:    // Set process status to running
         MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
@@ -268,9 +269,13 @@ int launchUserMode(char *arg)
     psr_set(psr);
 
     // run the entry point
+    ProcTable[procSlot].tsStart = sys_clock();  // Initialize process start time
     result = ProcTable[procSlot].entryPoint(arg);
 
-    Terminate(result); // where does this return to? nowhere it seems
+    // After process returns
+    ProcTable[procSlot].tsStart = 0;            // Reset it's start time
+
+    Terminate(result);
 }
 
 static int spawn_launch(char *arg)
@@ -573,6 +578,33 @@ int syscall_gettimeofday(sysargs *args)
     args->arg1 = (void *)decimal_time;  // packing to return back to caller
 
     return decimal_time;
+}
+
+
+
+void syscall_getcputime(sysargs *args)
+{
+    // Get process
+    int pid = getpid();
+    process *proc = &ProcTable[pid];
+    int currentTime = sys_clock();   // Get system time 
+
+    // Check that we're in kernel mode
+    checkKernelMode();
+
+    // Check that process isn't currently running
+    if (proc->status != STATUS_RUNNING)
+    {
+        return 0;
+    }
+
+    // Add to the cpu_time, the amount of time the process has spent executing
+    proc->cpu_time += (currentTime - proc->tsStart);
+
+    // Set status to temporary non-running status
+    proc->status = STATUS_CPUCALC;
+
+    return proc->cpu_time;
 }
 
 // Get processes pid
