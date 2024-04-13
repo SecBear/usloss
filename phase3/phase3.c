@@ -18,7 +18,7 @@ static void nullsys3(sysargs *args_ptr);
 void check_kernel_mode(char string[]);
 int launchUserMode(char *arg);
 static void syscall_spawn(sysargs *args);
-int syscall_wait(int *status);
+int syscall_wait(sysargs *args);
 void syscall_terminate(sysargs *args);
 void syscall_semcreate(sysargs *args);
 int GetNextSemID();
@@ -228,16 +228,30 @@ int launchUserMode(char *arg)
     Terminate(result);
 }
 
-int syscall_wait(int *status)
+int syscall_wait(sysargs *args)
 {
-    wait_real(status);
+    int *status = (void *)args->arg2;
+    int result = wait_real(status);
+    if (result >= 0)
+    {
+        args->arg1 = (void *)result;
+        args->arg2 = (void *)ProcTable[result].termCode;
+        // check for children
+        if (ProcTable[result].children->count > 0)
+        {
+            args->arg4 = (void *)0;     // process has children
+        }
+        else
+        {
+            args->arg4 = (void *)-1;    // process has no children
+        }
+    }
 }
 
-extern int  wait_real(int *status)
+extern int wait_real(int *status)
 {
-    join(status);
-
-    return 0;
+    int result = join(&status);
+    return result;
 }
 
 void syscall_terminate(sysargs *args)
@@ -260,6 +274,7 @@ extern void terminate_real(int exit_code)
    // Update process's cpu time
    updateCpuTime(current);
    current->status = STATUS_TERMINATED; // Set status to terminated
+   current->termCode = exit_code;
 
     // if process has children
     if (current->children->count > 0)

@@ -21,6 +21,7 @@ struct process {                        // A process
    int      cpu_time;          // Time on CPU
    int      tsStart;          // Time the process started executing
    int      tsEnd;            // Time when process stopped executing
+   int      termCode;         // Termination code
 
    children children;         // Linked list of children processes
 };
