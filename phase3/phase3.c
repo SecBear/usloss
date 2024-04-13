@@ -79,7 +79,7 @@ start2(char *arg)
         SemTable[i].value = NULL;
         SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
-        SemTable[i].status = SEM_FREE;  // indicates a semaphore is free
+        SemTable[i].status = SEM_UNUSED;  // indicates a semaphore is freshly allocated
 
         SemTable[i].waiting = malloc(sizeof(struct waiting)); // Allocate memory for the waiting list
         SemTable[i].waiting->pHead = NULL;  // Initialize Waiting list pHead to NULL
@@ -309,6 +309,12 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
     // Get the next semaphore ID
     int semID = GetNextSemID();
 
+    // Check validity before allocating semaphore values
+    if (semID == -1)    
+    {
+        return -1;
+    }
+
     // Initialize semaphore values
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
@@ -328,13 +334,13 @@ int GetNextSemID()
    if (numSems < MAXSEMS) // If there's room for another process
    {
       // Loop through until we find an empty slot
-      while (SemTable[semSlot].status != SEM_FREE && semSlot != next_sem_id)
+      while (SemTable[semSlot].status != SEM_UNUSED && semSlot != next_sem_id)
       {
          next_sem_id++;
          semSlot = next_sem_id % MAXSEMS;
       }
 
-      if (SemTable[semSlot].status == SEM_FREE)
+      if (SemTable[semSlot].status == SEM_UNUSED)
       {
          new_sem_id = next_sem_id;                  // Assigns new_mbox_id to current next_mbox_id value
          next_sem_id = (next_sem_id + 1) % MAXSEMS; // Increment next_mbox_id for the next search
@@ -408,6 +414,10 @@ int  semp_real(int semID)
         MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
 
         // After unblocked
+        if (sem->status = SEM_FREE) // If we've been free'd
+        {
+            Terminate(pid);         // Terminate
+        }
         MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
         MboxReceive(sem->mutex, NULL, 0);    // release mutex
@@ -423,15 +433,22 @@ int  semp_real(int semID)
 void syscall_semfree(sysargs *args)
 {
     int semID = args->arg1;             // grab sem ID
-    int result = semfree_real(semID);     // call semfree_real
-    args->arg4 = result;
+    int result = semfree_real(semID);   // call semfree_real
+    if (result == -1)
+    {
+        args->arg4 = (void *)(long)-1;        // Indicating semaphore handle is invalid
+    }
+    else
+    {
+        args->arg4 = (void *)0;            // Indicating success
+    }
 }
 
 int semfree_real(int semID)
 {
     semaphore *sem = &SemTable[semID];  // Get semaphore
     int pid = getpid();                 // Get the pid of current process
-    process *process = &ProcTable[pid]; // Get the current process
+    process *proc = &ProcTable[pid]; // Get the current process
 
     // error checking
     if (sem == NULL)
@@ -440,16 +457,26 @@ int semfree_real(int semID)
     }
 
     // obtain mutex
+    MboxSend(sem->mutex, NULL, 0);
+    sem->status = SEM_FREE;                     // Set semaphore status to free
 
     // any processes waiting on the semaphore?
-    if (sem->status == SEM_BLOCKED)
+    if (sem->waiting->count > 0)
     {
         // terminate them
+        for (int i = 0; i < sem->waiting->count; ++i)
+        {
+            popWaitList(sem->waiting);
+            MboxCondSend(proc->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
+        }
     }
-        
 
     // release mutex
-    
+    MboxReceive(sem->mutex, NULL, 0);
+
+    --numSems;  // Decrement global semaphore count
+
+    return 0;
 }
 
 // from phase 2

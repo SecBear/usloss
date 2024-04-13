@@ -47,6 +47,7 @@ struct waiting {        // List of waiting processes
 // constants
 #define SYS_SEMCREATE 11                // choosing 11 at random, no purpose
 #define ITEM_IN_USE 1
-#define SEM_FREE 5            // Indicates a sempaphore is free
+#define SEM_UNUSED 5
 #define SEM_USED 6
-#define SEM_BLOCKED 7         // Indicates a semaphore is blocked
+#define SEM_FREE 7            // Indicates a sempaphore is free
+#define SEM_BLOCKED 8         // Indicates a semaphore is blocked
