@@ -8,6 +8,7 @@
 #include <provided_prototypes.h>
 #include <usyscall.h>
 #include <libuser.h>
+#include <time.h>
 
 int start2(char *); 
 int start3(char *);
@@ -25,6 +26,7 @@ void syscall_semp(sysargs *args);
 void syscall_semv(sysargs *args);
 int syscall_getpid(sysargs *args);
 void syscall_semfree(sysargs *args);
+int syscall_gettimeofday(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -59,7 +61,7 @@ start2(char *arg)
     sys_vec[SYS_SEMP] = syscall_semp;           // semp
     sys_vec[SYS_SEMV] = syscall_semv;           // semv
     sys_vec[SYS_SEMFREE] = syscall_semfree;     // semfree
-    sys_vec[SYS_GETTIMEOFDAY] = GetTimeofDay; // get time of day?
+    sys_vec[SYS_GETTIMEOFDAY] = syscall_gettimeofday; // get time of day?
     sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
     sys_vec[SYS_GETPID] = syscall_getpid;       // get pid?
     // more?
@@ -550,6 +552,27 @@ void check_kernel_mode(char string[])
       console("%s, Kernel mode expected, but function called in user mode.\n", string);
       halt(1);
    }
+}
+
+// Are we supposed to use a certain clock? Using time.h as a placeholder
+int syscall_gettimeofday(sysargs *args)
+{
+    time_t current_time;
+    struct tm *time_info;
+    int decimal_time;
+
+    // Get current time as Unix timestamp
+    time(&current_time);
+
+    // Convert to local time
+    time_info = localtime(&current_time);
+
+    // Calculate decimal time
+    int decimal_time = (time_info->tm_hour * 100) + time_info->tm_min;
+
+    args->arg1 = (void *)decimal_time;  // packing to return back to caller
+
+    return decimal_time;
 }
 
 // Get processes pid
