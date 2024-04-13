@@ -71,6 +71,11 @@ start2(char *arg)
     {
         ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
         ProcTable[i].privateMbox = MboxCreate(0,0);     // Initialize private mailboxes
+
+        ProcTable[i].children = malloc(sizeof(struct children));    // Initialize the children list
+        ProcTable[i].children->pHead = NULL;
+        ProcTable[i].children->pTail = NULL;
+        ProcTable[i].children->count = 0;
     }
 
     // TODO: Initialize semaphore table
@@ -219,8 +224,21 @@ extern void terminate_real(int exit_code)
     returns) all user processes should have terminated. Since there should then be no runnable or
     blocked processes, the kernel will halt.
     */
+   int pid = getpid();
+   process *current = &ProcTable[pid];
 
-   // Zap each child
+    // if process has children
+    if (current->children->count > 0)
+    {
+        // Zap each child
+        process *pHead = current->children->pHead;
+        while (current != NULL)
+        {
+            zap(current->pid);
+            MboxCondReceive(current->privateMbox, NULL, 0);
+            current = current->pNext;
+        }
+    }
 
    // Terminate this process (zap?)
 
@@ -419,6 +437,10 @@ int  semp_real(int semID)
         {
             Terminate(pid);         // Terminate
         }
+        if (is_zapped)  // If we've been zapped
+        {
+            Terminate(pid);
+        }
         MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
         MboxReceive(sem->mutex, NULL, 0);    // release mutex
@@ -465,10 +487,12 @@ int semfree_real(int semID)
     if (sem->waiting->count > 0)
     {
         // terminate them
-        for (int i = 0; i < sem->waiting->count; ++i)
+        process *current = sem->waiting->pHead;
+        while (current != NULL)
         {
             popWaitList(sem->waiting);
             MboxCondSend(proc->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
+            current = current->pNext;
         }
     }
 
