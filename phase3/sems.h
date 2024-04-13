@@ -18,6 +18,9 @@ struct process {                        // A process
    int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;      // Private mailbox ID
    int      startupMbox;      // Startup mailbox ID
+   int      cpu_time;          // Time on CPU
+   int      tsStart;          // Time the process started executing
+   int      tsEnd;            // Time when process stopped executing
 
    children children;         // Linked list of children processes
 };
@@ -45,9 +48,13 @@ struct waiting {        // List of waiting processes
 };
 
 // constants
-#define SYS_SEMCREATE 11                // choosing 11 at random, no purpose
+#define SYS_SEMCREATE 20                // choosing 20 at random, no purpose
 #define ITEM_IN_USE 1
 #define SEM_UNUSED 5
 #define SEM_USED 6
 #define SEM_FREE 7            // Indicates a sempaphore is free
 #define SEM_BLOCKED 8         // Indicates a semaphore is blocked
+
+#define STATUS_RUNNING 9
+#define STATUS_CPUCALC 10
+#define STATUS_TERMINATED 11

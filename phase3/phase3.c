@@ -27,6 +27,7 @@ void syscall_semv(sysargs *args);
 int syscall_getpid(sysargs *args);
 void syscall_semfree(sysargs *args);
 int syscall_gettimeofday(sysargs *args);
+void syscall_getcputime(sysargs *args);
 
 // Globals
 process ProcTable[MAXPROC];     // Array of processes
@@ -62,7 +63,7 @@ start2(char *arg)
     sys_vec[SYS_SEMV] = syscall_semv;           // semv
     sys_vec[SYS_SEMFREE] = syscall_semfree;     // semfree
     sys_vec[SYS_GETTIMEOFDAY] = syscall_gettimeofday; // get time of day?
-    sys_vec[SYS_CPUTIME] = CPUTime;     // cpu time?
+    sys_vec[SYS_CPUTIME] = syscall_getcputime;     // cpu time?
     sys_vec[SYS_GETPID] = syscall_getpid;       // get pid?
     // more?
 
@@ -185,7 +186,8 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
         ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
-        ProcTable[procSlot].status = STATUS_RUNNING:    // Set process status to running
+        ProcTable[procSlot].status = STATUS_RUNNING;    // Set process status to running
+        ProcTable[procSlot].tsStart = sys_clock();      // Set process start time
         MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
     //more to check the kidpid and put the new process data to the process table
@@ -199,6 +201,31 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
       ProcTable[procSlot].pid = pid;  
     */
     return pid;
+}
+
+int launchUserMode(char *arg)
+{   
+    int pid;
+    int procSlot;
+    int result;
+    int psr;
+
+    pid = getpid();
+    procSlot = pid % MAXPROC;
+
+    // If this process pre-empts the procTable initialization, wait until that's done
+    MboxReceive(ProcTable[procSlot].startupMbox, NULL, 0);  // Blocks until a message is in the startup mbox
+
+    // set user mode using get_psr and set_psr
+    psr = psr_get();
+    psr = psr & ~PSR_CURRENT_MODE;   // Unset the current mode bit (to user mode)
+    psr_set(psr);
+
+    // run the entry point
+    result = ProcTable[procSlot].entryPoint(arg);
+
+    // After process returns
+    Terminate(result);
 }
 
 int syscall_wait(int *status)
@@ -230,6 +257,10 @@ extern void terminate_real(int exit_code)
    int pid = getpid();
    process *current = &ProcTable[pid];
 
+   // Update process's cpu time
+   updateCpuTime(current);
+   current->status = STATUS_TERMINATED; // Set status to terminated
+
     // if process has children
     if (current->children->count > 0)
     {
@@ -248,34 +279,6 @@ extern void terminate_real(int exit_code)
    // At this point, all user processes should have terminated - halt? or done automatically?
     quit(exit_code);
     
-}
-
-int launchUserMode(char *arg)
-{   
-    int pid;
-    int procSlot;
-    int result;
-    int psr;
-
-    pid = getpid();
-    procSlot = pid % MAXPROC;
-
-    // If this process pre-empts the procTable initialization, wait until that's done
-    MboxReceive(ProcTable[procSlot].startupMbox, NULL, 0);  // Blocks until a message is in the startup mbox
-
-    // set user mode using get_psr and set_psr
-    psr = psr_get();
-    psr = psr & ~PSR_CURRENT_MODE;   // Unset the current mode bit (to user mode)
-    psr_set(psr);
-
-    // run the entry point
-    ProcTable[procSlot].tsStart = sys_clock();  // Initialize process start time
-    result = ProcTable[procSlot].entryPoint(arg);
-
-    // After process returns
-    ProcTable[procSlot].tsStart = 0;            // Reset it's start time
-
-    Terminate(result);
 }
 
 static int spawn_launch(char *arg)
@@ -437,9 +440,12 @@ int  semp_real(int semID)
     {
         // Otherwise, add process to waiting list (we're trying to decrement below 0)
         AddWaitList(sem->waiting);                  // Add process to wait list
+        updateCpuTime(process);                     // Update the process's cpu time
         MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
 
         // After unblocked
+        process->tsStart = sys_clock();             // Set the new start time to the resume time
+
         if (sem->status = SEM_FREE) // If we've been free'd
         {
             terminate_real(pid);         // Terminate
@@ -573,38 +579,51 @@ int syscall_gettimeofday(sysargs *args)
     time_info = localtime(&current_time);
 
     // Calculate decimal time
-    int decimal_time = (time_info->tm_hour * 100) + time_info->tm_min;
+    decimal_time = (time_info->tm_hour * 100) + time_info->tm_min;
 
     args->arg1 = (void *)decimal_time;  // packing to return back to caller
 
     return decimal_time;
 }
 
+// from phase1
+int updateCpuTime(process *process)
+{
+   int currentTime = sys_clock();   // Get system time 
 
+   // Check that process isn't currently running
+   if (process->status != STATUS_RUNNING)
+   {
+      return 0;
+   }
+
+   // Add to the cpu_time, the amount of time the process has spent executing
+   process->cpu_time += (currentTime - process->tsStart);
+
+   // Set status to temporary non-running status
+   //process->status = STATUS_CPUCALC;
+
+   return process->cpu_time;
+}
 
 void syscall_getcputime(sysargs *args)
 {
     // Get process
     int pid = getpid();
     process *proc = &ProcTable[pid];
-    int currentTime = sys_clock();   // Get system time 
-
-    // Check that we're in kernel mode
-    checkKernelMode();
-
-    // Check that process isn't currently running
-    if (proc->status != STATUS_RUNNING)
+    int cpu_time;
+    
+    // If process is running, get it's updated cpu time
+    if (proc->status == STATUS_RUNNING)
     {
-        return 0;
+        cpu_time = updateCpuTime(proc);
+        args->arg1 = (void *)cpu_time;  // packing to return back to caller
+        return;
     }
 
-    // Add to the cpu_time, the amount of time the process has spent executing
-    proc->cpu_time += (currentTime - proc->tsStart);
-
-    // Set status to temporary non-running status
-    proc->status = STATUS_CPUCALC;
-
-    return proc->cpu_time;
+    // Otherwise, cpu time should be updated
+    args->arg1 = (void *)proc->cpu_time;
+    return;
 }
 
 // Get processes pid
