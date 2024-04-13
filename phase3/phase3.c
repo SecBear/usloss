@@ -489,9 +489,13 @@ void syscall_semfree(sysargs *args)
     {
         args->arg4 = (void *)(long)-1;        // Indicating semaphore handle is invalid
     }
-    else
+    else if (result == 0)
     {
         args->arg4 = (void *)0;            // Indicating success
+    }
+    else if (result == 1)
+    {
+        args->arg4 = (void *)1;         // Indicating processes were blocked on semaphore
     }
 }
 
@@ -500,6 +504,7 @@ int semfree_real(int semID)
     semaphore *sem = &SemTable[semID];  // Get semaphore
     int pid = getpid();                 // Get the pid of current process
     process *proc = &ProcTable[pid]; // Get the current process
+    int result = 0;
 
     // error checking
     if (sem == NULL)
@@ -522,6 +527,7 @@ int semfree_real(int semID)
             MboxCondSend(current->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
             current = current->pNext;
         }
+        result = 1;
     }
 
     sem->status = SEM_UNUSED;   // Set status back to unused 
@@ -531,7 +537,7 @@ int semfree_real(int semID)
 
     --numSems;  // Decrement global semaphore count
 
-    return 0;
+    return result;
 }
 
 // from phase 2
