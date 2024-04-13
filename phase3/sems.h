@@ -4,8 +4,7 @@
 typedef struct process process;
 typedef struct process *pProcess;
 typedef struct semaphore semaphore;
-typedef struct children *children;  // Linked list of children processes for any process
-typedef struct waiting *waiting;    // Linked list of waiting processes on a semaphore
+typedef struct list *list;    // Linked list of processes (can be children list or waiting list)
 
 struct process {                        // A process
    pProcess pNext;            // Next pointer
@@ -23,8 +22,9 @@ struct process {                        // A process
    int      tsStart;          // Time the process started executing
    int      tsEnd;            // Time when process stopped executing
    int      termCode;         // Termination code
+   int      child_waiting;    // 0 for neither, 1 for child, 2 for waiting
 
-   children children;         // Linked list of children processes
+   list children;         // Linked list of children processes
 };
 
 struct semaphore {   // A semaphore
@@ -34,19 +34,13 @@ struct semaphore {   // A semaphore
    int      mbox;    // Semaphore mailbox ID (CURRENTLY NOT USED AT ALL)
    int      mutex;   // Mutex for manipulating semaphore's value
 
-   waiting  waiting; // waiting list of processes waiting on this semaphore
+   list  waiting; // waiting list of processes waiting on this semaphore
 };
 
-struct children {       // List of children processes
+struct list {       // List of children processes
    pProcess pHead;      // Pointer to head process
    pProcess pTail;      // Pointer to tail process
    int      count;      // Count of children processes
-};
-
-struct waiting {        // List of waiting processes
-   pProcess pHead;      // Pointer to head process
-   pProcess pTail;      // Pointer to tail process
-   int      count;      // Count of waiting processes
 };
 
 // constants
