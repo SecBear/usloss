@@ -42,9 +42,9 @@ start2(char *arg)
 {
     int		pid;
     int		status;
-    /*
-     * Check kernel mode here.
-     */
+
+    // Check that we're in kernel mode
+    check_kernel_mode("Check_Kernel_Mode: Start2\n");
 
     for (int i = 0; i < MAXSYSCALLS; i++)
     {
@@ -724,4 +724,3 @@ int popList(list list)
 
     return 1;
 }
-
