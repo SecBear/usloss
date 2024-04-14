@@ -403,7 +403,6 @@ int semcreate_real(int init_value)
     // Initialize semaphore values
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
-    SemTable[semID].mbox = MboxCreate(0,0);     // Create semaphore's private mailbox
     SemTable[semID].mutex = MboxCreate(1,0);    // Create semaphore's mutex
     
     numSems++;  // Increment max number of sems

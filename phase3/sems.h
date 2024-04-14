@@ -19,7 +19,7 @@ struct process {              // A process
    int      privateMbox;            // Private mailbox ID
    int      startupMbox;            // Startup mailbox ID
    int      termCode;               // Termination code
-   int      child_waiting;          // 0 for neither, 1 for child, 2 for waiting
+   int      child_waiting;          // Flag to indicate child or waiting process: 0 for neither, 1 for child, 2 for waiting
 
    list children;                   // Linked list of children processes
 };
@@ -28,7 +28,6 @@ struct semaphore {   // A semaphore
    int      sid;     // Semaphore ID
    int      value;   // Semaphore value
    int      status;  // Semaphore status
-   int      mbox;    // Semaphore mailbox ID (CURRENTLY NOT USED AT ALL)
    int      mutex;   // Mutex for manipulating semaphore's value
 
    list  waiting;    // waiting list of processes waiting on this semaphore
