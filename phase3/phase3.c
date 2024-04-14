@@ -24,9 +24,9 @@ void syscall_semcreate(sysargs *args);
 int GetNextSemID();
 void syscall_semp(sysargs *args);
 void syscall_semv(sysargs *args);
-int syscall_getpid(sysargs *args);
+void syscall_getpid(sysargs *args);
 void syscall_semfree(sysargs *args);
-int syscall_gettimeofday(sysargs *args);
+void syscall_gettimeofday(sysargs *args);
 void syscall_getcputime(sysargs *args);
 
 /* ------------------------------------------------------------------------
@@ -45,9 +45,9 @@ int numWaitingProc = 0;         // Integer to hold the number of waiting process
    Functions
 
 /* ------------------------------------------------------------------------
-   Name - Start2
+   Name - start2()
    Purpose - Create first user-level process and wait for it to finish.
-   Parameters - 
+   Parameters - char *arg - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
@@ -142,7 +142,7 @@ start2(char *arg)
 } /* start2 */
 
 /* ------------------------------------------------------------------------
-   Name - syscall_spawn
+   Name - syscall_spawn()
    Purpose - 
    Parameters - 
    Returns - 
@@ -155,28 +155,20 @@ static void syscall_spawn(sysargs *args)
     int stack_size;
     int priority;
     char *name;
-    // more local variables
-    if (is_zapped)
-    {
-        //Terminate(1);   // terminate the process
-    }
 
+    // Pull out arguments from sysargs *args to pass to spawn_real()
     func = args->arg1;
     arg = args->arg2;
     stack_size = (int) args->arg3;
     priority = args->arg4; 
     name = (char *)args->arg5;
 
-    // call another function to modularize the code better
-    int kid_pid = spawn_real(name, func, arg, stack_size, priority);    // spawn the process
-    args->arg1 = (void *) kid_pid;  // packing to return back to caller
-    args->arg4 = (void *) 0;
+    // Spawn the process
+    int kid_pid = spawn_real(name, func, arg, stack_size, priority);
 
-    if (is_zapped()) // should terminate the process
-    {
-        // Set to user mode - call psr_set to do this
-        return ;
-    }
+    // Pack the required return values back to the caller
+    args->arg1 = (void *) kid_pid;
+    args->arg4 = (void *) 0;
 }
 
 /* ------------------------------------------------------------------------
@@ -189,44 +181,39 @@ static void syscall_spawn(sysargs *args)
 int  spawn_real(char *name, int (*func)(char *), char *arg,
                 int stack_size, int priority)
 {
-    // mbox create to create a private mailbox
-    // call fork1 to create a process that runs a start function
-    // the process runs at user mode
-    // maintain the parent-child relationship at phase 3 process table
-    // provide a launch function: spawn_launch()
-
     int pid;
-    int my_location; /* parent's location in process table */
-    int kid_location; /* child's location in process table */
+    int my_location;
+    int kid_location;
     int result;
     int startupMbox;
 
     process *kidptr, *prevptr;
     my_location = getpid() % MAXPROC;
 
-    /* create our child */
+    // Fork our child using launchUserMode to set user mode and handle entry point + termination
     pid = fork1(name, launchUserMode, arg, stack_size, priority);
-    //                   |-> change to launchUserProcess which waits for process to be initialized with parent, proclist, etc. before running (in the case of higher priority child)
+
+    // Populate Process Table with new process values
     if (pid >= 0)
     {
-        int procSlot = pid % MAXPROC;
-        ProcTable[procSlot].pid = pid;
-        ProcTable[procSlot].parentPid = getpid();
-        ProcTable[procSlot].entryPoint = func;          // give launchUserMode the function call 
-        ProcTable[procSlot].name = name;
-        ProcTable[procSlot].priority = priority;
+        int procSlot = pid % MAXPROC;               // Proc Slot in the ProcTable
+        ProcTable[procSlot].pid = pid;              // Process ID
+        ProcTable[procSlot].parentPid = getpid();   // Parent's PID
+        ProcTable[procSlot].entryPoint = func;      // Give launchUserMode the function call
+        ProcTable[procSlot].name = name;            // Process name
+        ProcTable[procSlot].priority = priority;    // Process priority
 
         // Add process to parent's children list
         AddList(pid, ProcTable[my_location].children);
 
-        ProcTable[procSlot].status = STATUS_RUNNING;    // Set process status to running
-        MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
+        ProcTable[procSlot].status = STATUS_RUNNING;            // Set process status to running
+        MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0); // Tell process to start running (unblock in launchUserMode)
     }
     return pid;
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - launchUserMode()
    Purpose - 
    Parameters - 
    Returns - 
@@ -245,20 +232,20 @@ int launchUserMode(char *arg)
     // If this process pre-empts the procTable initialization, wait until that's done
     MboxReceive(ProcTable[procSlot].startupMbox, NULL, 0);  // Blocks until a message is in the startup mbox
 
-    // set user mode using get_psr and set_psr
-    psr = psr_get();
-    psr = psr & ~PSR_CURRENT_MODE;   // Unset the current mode bit (to user mode)
-    psr_set(psr);
+    // Set user mode using get_psr and set_psr
+    psr = psr_get();                // Get the current Process Status Register (PSR)
+    psr = psr & ~PSR_CURRENT_MODE;  // Unset the current mode bit (to user mode)
+    psr_set(psr);                   // Set the PSR to user mode 
 
-    // run the entry point
+    // Run the process's entry point
     result = ProcTable[procSlot].entryPoint(arg);
 
-    // After process returns
+    // After process returns, terminate
     Terminate(result);
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_wait()
    Purpose - 
    Parameters - 
    Returns - 
@@ -266,30 +253,32 @@ int launchUserMode(char *arg)
    ----------------------------------------------------------------------- */
 int syscall_wait(sysargs *args)
 {
+    // Pull status from sysargs
     int *status = (void *)args->arg2;
+
+    // Call wait_real and store result
     int result = wait_real(status);
+
+    // Package the proper values to send back to the caller
     if (result >= 0)
     {
-        args->arg1 = (void *)result;
-        args->arg2 = (void *)ProcTable[result % MAXPROC].termCode;
-        // check for children
+        args->arg1 = (void *)result;    // Package the pid of the terminating child
+        args->arg2 = (void *)ProcTable[result % MAXPROC].termCode;  // Package the child's termination code
+
+        // Check for children
         if (ProcTable[result % MAXPROC].children->count > 0)
         {
-            args->arg4 = (void *)0;     // process has children
+            args->arg4 = (void *)0;     // Process has children
         }
     }
-    else if (result == -2)
+    else if (result == -2)  // Process has no children
     {
-        // process has no children
-    }
-    else if (result == -1)
-    {
-        // process was zapped while waiting for child to quit
+        args->arg4 = (void *)-1;
     }
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - wait_real()
    Purpose - 
    Parameters - 
    Returns - 
@@ -297,12 +286,13 @@ int syscall_wait(sysargs *args)
    ----------------------------------------------------------------------- */
 extern int wait_real(int *status)
 {
+    // Call join with the status and return result
     int result = join(&status);
     return result;
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_terminate()
    Purpose - 
    Parameters - 
    Returns - 
@@ -310,25 +300,21 @@ extern int wait_real(int *status)
    ----------------------------------------------------------------------- */
 void syscall_terminate(sysargs *args)
 {
+    // Pull the exit code out of sysargs and call terminate_real
     int exit_code = (void *) args->arg1;
     terminate_real(exit_code);
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
-   Purpose - 
+   Name - terminate_real()
+   Purpose - Terminates the invoking process and all its children and synchronizes with its parent’s Wait
+    system call.
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
 extern void terminate_real(int exit_code)
 {
-    /* Terminates the invoking process and all its children and synchronizes with its parent’s Wait
-    system call. The child Processes are terminated by zap’ing them. When all user processes have
-    terminated, your operating system should shut down. Thus, after start3 terminates (or
-    returns) all user processes should have terminated. Since there should then be no runnable or
-    blocked processes, the kernel will halt.
-    */
    int pid = getpid();
    process *current = &ProcTable[pid % MAXPROC];
 
@@ -338,49 +324,57 @@ extern void terminate_real(int exit_code)
         current->termCode = exit_code;
     }
 
-    // if process has children
+    // Check if process has children
     if (current->children->count > 0)
     {
         // Zap each child
         process *current_child = current->children->pHead; 
         while (current_child != NULL)
         {
-            // check if child has already terminated
+            // Check if the child has already terminated
             if (current_child->status == STATUS_TERMINATED)
             {
+                // Remove the child from the children list and continue
                 popList(current->children);
                 current_child = current_child->pNext;
                 break;
             }
-            // If not, zap the child and wake it up
+
+            // If child hasn't yet terminated, zap the child and wake it up
             zap(current_child->pid);
             MboxCondReceive(current_child->privateMbox, NULL, 0);
-            popList(current->children); // Child should be done now, so pop it
+            popList(current->children);     // Child should be done now, so pop it
             current_child = current_child->pNext;
         }
     }
 
-   // Quit (terminate) this process
+    // Quit (terminate) this process
     quit(exit_code);
 }
 
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_semcreate()
    Purpose - 
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-void syscall_semcreate(sysargs *args) {   //useless function having issues with result
+void syscall_semcreate(sysargs *args) 
+{   
+    // Pull the initial semaphore value out of sysargs and call semcreate_real
     int init_value = (int)(long)args->arg1;
-
     int sem_id = semcreate_real(init_value);
-    if (sem_id >= 0) {
+
+    // Package the result back for the caller
+    if (sem_id >= 0) 
+    {
         // Success: Return semaphore ID and set result to 0
         args->arg1 = (void *)(long)sem_id; // Correctly returning semaphore ID
         args->arg4 = (void *)0;            // Indicating success
-    } else {
+    } 
+    else 
+    {
         // Failure: Indicate failure in creating a semaphore
         args->arg1 = (void *)(long)-1;     // Semaphore not created, so returning -1
         args->arg4 = (void *)(long)-1;     // Indicate failure
@@ -388,13 +382,14 @@ void syscall_semcreate(sysargs *args) {   //useless function having issues with 
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - semcreate_real()
    Purpose - 
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-int semcreate_real(int init_value) {     //this is dumb and needs fixing
+int semcreate_real(int init_value) 
+{
 
     // Get the next semaphore ID
     int semID = GetNextSemID();
@@ -417,7 +412,7 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - GetNextSemID()
    Purpose - 
    Parameters - 
    Returns - 
@@ -425,10 +420,10 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
    ----------------------------------------------------------------------- */
 int GetNextSemID()
 {
-   int new_sem_id = -1;                  // Initialize new mbox id to -1
+   int new_sem_id = -1;                 // Initialize new mbox id to -1
    int semSlot = next_sem_id % MAXMBOX; // Assign new mailbox to next_mbox_id mod MAXMBOX (to wrap around to 1, 2, 3, etc. from max)
 
-   if (numSems < MAXSEMS) // If there's room for another process
+   if (numSems < MAXSEMS)               // If there's room for another process
    {
       // Loop through until we find an empty slot
       while (SemTable[semSlot].status != SEM_UNUSED) //&& semSlot != next_sem_id)
@@ -449,7 +444,7 @@ int GetNextSemID()
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_semv
    Purpose - 
    Parameters - 
    Returns - 
@@ -462,7 +457,7 @@ void syscall_semv(sysargs *args)
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - semv_real()
    Purpose - Increments a semaphore.
    Parameters - 
    Returns - 
@@ -470,34 +465,33 @@ void syscall_semv(sysargs *args)
    ----------------------------------------------------------------------- */
 int  semv_real(int semID)
 {
-    semaphore *sem = &SemTable[semID];
-    int pid = getpid();                 // Get the pid of current process
+    semaphore *sem = &SemTable[semID];       // Grab the semaphore from the SemTable
+    int pid = getpid();                      // Get the pid of current process
     process *current_proc = &ProcTable[pid]; // Get the current process
 
     // Increment the value
     MboxSend(sem->mutex, NULL, 0);       // Get the mutex
-    sem->value++;
+    sem->value++;                        // Increment the value
     MboxReceive(sem->mutex, NULL, 0);    // Release the mutex
 
-    // Is there any process blocked on the semaphore because of P operation?
-    if (sem->waiting->count > 0)
+    // Check for blocked processes on the semaphore because of P operation
+    if (sem->waiting->count > 0)        // If processes are waiting (blocked)
     {  
-        // Conditional send on that process's private mailbox
+        // Traverse through waitlist to find the process
         process *pNext = sem->waiting->pHead;
-        while (pNext != NULL)   // traverse through waitlist to find process
+        while (pNext != NULL)   
         {   
-            popList(sem->waiting);  // Remove process from waiting list
+            popList(sem->waiting);      // Remove process from waiting list
             sem->status = SEM_USED;     // Set the semaphore status to used again
-            MboxCondSend(pNext->privateMbox, NULL, 0); // Wake up the blocked proc
+            MboxCondSend(pNext->privateMbox, NULL, 0); // Wake up the blocked process
             break;
         }
     }
-
     return 0; // success
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_semp()
    Purpose - 
    Parameters - 
    Returns - 
@@ -505,12 +499,13 @@ int  semv_real(int semID)
    ----------------------------------------------------------------------- */
 void syscall_semp(sysargs *args)
 {
-    int semID = (int)args->arg1;    // parse argument (semaphore ID)
-    semp_real(semID);               // call semp_real with semID
+    // Pull the semaphore ID from sysargs and call semp_real
+    int semID = (int)args->arg1; 
+    semp_real(semID);               
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - semp_real()
    Purpose - Decrements a sempahore
    Parameters - 
    Returns - 
@@ -522,39 +517,36 @@ int  semp_real(int semID)
     int pid = getpid();                 // Get the pid of current process
     process *process = &ProcTable[pid]; // Get the current process
 
-    // if the semaphore value >0
+    // If the semaphore value > 0
     if (sem->value > 0)
     {
-        // we'll decrement 
-        MboxSend(sem->mutex, NULL, 0);    //obtain mutex
-        sem->value--;   // decrement semaphore value
-        MboxReceive(sem->mutex, NULL, 0);    // release mutex
+        // Decrement the semaphore
+        MboxSend(sem->mutex, NULL, 0);    // Obtain the mutex
+        sem->value--;                     // Decrement the semaphore value
+        MboxReceive(sem->mutex, NULL, 0); // Release mutex
     }
     else
     {
-        // Otherwise, add process to waiting list (we're trying to decrement below 0)
+        // Otherwise, add the process to waiting list, effectively blocking it (we're trying to decrement below 0)
         AddList(pid, sem->waiting);                  // Add process to wait list
-        MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
+        MboxReceive(process->privateMbox, NULL, 0);  // Block by receiving on the current process's private mailbox
 
-        if (sem->status == SEM_FREE) // If we've been free'd
+        // After waking up
+        // Check if we've been free'd
+        if (sem->status == SEM_FREE)
         {   
             process->termCode = 1;        // Set status to 1 - there are processes blocked on the semaphore
             terminate_real(pid);         // Terminate
         }
-        /*if (is_zapped)  // If we've been zapped
-        {
-            terminate_real(pid);
-        }*/
-        MboxSend(sem->mutex, NULL, 0);    // obtain mutex
-        sem->value--;   // Still decrement?
-        MboxReceive(sem->mutex, NULL, 0);    // release mutex
+        MboxSend(sem->mutex, NULL, 0);    // Obtain the mutex
+        sem->value--;                     // Decrement the semaphore
+        MboxReceive(sem->mutex, NULL, 0); // Release mutex
     }
-
-   return 0;    // success
+    return 0;    // success
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_semfree()
    Purpose - 
    Parameters - 
    Returns - 
@@ -562,24 +554,30 @@ int  semp_real(int semID)
    ----------------------------------------------------------------------- */
 void syscall_semfree(sysargs *args)
 {
-    int semID = args->arg1;             // grab sem ID
-    int result = semfree_real(semID);   // call semfree_real
+    // Pull the semaphore ID out of the sysargs and call semfree_real
+    int semID = args->arg1;             
+    int result = semfree_real(semID);  
+
+    // Check result and package the correct value back to the caller
     if (result == -1)
     {
-        args->arg4 = (void *)(long)-1;        // Indicating semaphore handle is invalid
+        // Indicating semaphore handle is invalid
+        args->arg4 = (void *)(long)-1;  
     }
     else if (result == 0)
     {
-        args->arg4 = (void *)0;            // Indicating success
+        // Indicating success
+        args->arg4 = (void *)0;         
     }
     else if (result == 1)
     {
-        args->arg4 = (void *)1;         // Indicating processes were blocked on semaphore
+        // Indicating processes were blocked on semaphore
+        args->arg4 = (void *)1;         
     }
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - semfree_real()
    Purpose - 
    Parameters - 
    Returns - 
@@ -587,76 +585,83 @@ void syscall_semfree(sysargs *args)
    ----------------------------------------------------------------------- */
 int semfree_real(int semID)
 {
-    semaphore *sem = &SemTable[semID];  // Get semaphore
+    semaphore *sem = &SemTable[semID];  // Get the semaphore
     int pid = getpid();                 // Get the pid of current process
-    process *proc = &ProcTable[pid]; // Get the current process
-    int result = 0;
+    process *proc = &ProcTable[pid];    // Get the current process
+    int result = 0;                     // Initialize the result value
 
-    // error checking
+    // Error checking
     if (sem == NULL)
     {
         return -1;
     }
 
-    // obtain mutex
+    // Obtain the mutex
     MboxSend(sem->mutex, NULL, 0);
-    sem->status = SEM_FREE;                     // Set semaphore status to free
+    sem->status = SEM_FREE;     // Set semaphore status to free
 
-    // any processes waiting on the semaphore?
+    // Check for any processes waiting on the semaphore
     if (sem->waiting->count > 0)
     {
-        // terminate them
+        // Terminate them
         process *current = sem->waiting->pHead;
         while (current != NULL)
         {
-            popList(sem->waiting);
-            MboxCondSend(current->privateMbox, NULL, 0);   // Wake up the process (should terminate with above status)
-            current = current->pNext;
+            popList(sem->waiting);                          // Remove process from the waiting list
+            MboxCondSend(current->privateMbox, NULL, 0);    // Wake up the process (should terminate with above status)
+            current = current->pNext;                       // Continue to next waiting process
         }
         result = 1;
     }
 
-    sem->status = SEM_UNUSED;   // Set status back to unused 
+    // Set status back to unused 
+    sem->status = SEM_UNUSED;   
 
-    // release mutex
+    // Release the mutex
     MboxReceive(sem->mutex, NULL, 0);
 
-    --numSems;  // Decrement global semaphore count
+    // Decrement global semaphore count
+    --numSems;  
 
     return result;
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_handler()
    Purpose - 
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
 void syscall_handler(int dev, void *punit) 
-{
-   check_kernel_mode("sys_handler");
-   sysargs *args = (sysargs*)punit;
+{   
+    // Check ther we're in kernel mode
+    check_kernel_mode("sys_handler");
+    
+    // Pull the arguments from the punit parameter
+    sysargs *args = (sysargs*)punit;
 
-   if (dev != SYSCALL_INT) {
-      halt(1); // Only proceed if the interrupt is a syscall interrupt
-   }
-   // check if invalid sys number
-   if (args->number >= MAXSYSCALLS)
-   {
-      printf("syscall_handler(): sys number %d is wrong. Halting...\n", args->number);
-      halt(1);
-   }
-   else if (args == NULL || args->number < 0) {
-      nullsys3(args);
-   } else
-   {
-      sys_vec[args->number](args);
-   }
+    if (dev != SYSCALL_INT) {
+        halt(1); // Only proceed if the interrupt is a syscall interrupt
+    }
+
+    // Check for invalid sys number
+    if (args->number >= MAXSYSCALLS)
+    {
+        printf("syscall_handler(): sys number %d is wrong. Halting...\n", args->number);
+        halt(1);
+    }
+    else if (args == NULL || args->number < 0) {
+        nullsys3(args);
+    } else
+    {   
+        // Call the relevant system call handler function
+        sys_vec[args->number](args);
+    }
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - nullsys3()
    Purpose - 
    Parameters - 
    Returns - 
@@ -664,13 +669,14 @@ void syscall_handler(int dev, void *punit)
    ----------------------------------------------------------------------- */
 static void nullsys3(sysargs *args_ptr)
 {
+    // Print error message and terminate
     printf("nullsys3(): Invalid syscall %d\n", args_ptr->number);
     printf("nullsys3(): process %d terminating\n", getpid());
     terminate_real(1);
 } /* nullsys3 */
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - check_kernel_mode()
    Purpose - 
    Parameters - 
    Returns - 
@@ -678,35 +684,35 @@ static void nullsys3(sysargs *args_ptr)
    ----------------------------------------------------------------------- */
 void check_kernel_mode(char string[])
 {
-   int currentPsr = psr_get();
+    // Get the current process status register (PSR)
+    int currentPsr = psr_get();
 
-   // if the kernel mode bit is not set, then halt
-   // meaning if not in kernel mode, halt(1)
-   if ((currentPsr & PSR_CURRENT_MODE) == 0)
-   {
-      // not in kernel mode
-      console("%s, Kernel mode expected, but function called in user mode.\n", string);
-      halt(1);
-   }
+    // if the kernel mode bit is not set, then halt
+    if ((currentPsr & PSR_CURRENT_MODE) == 0)
+    {
+        // not in kernel mode
+        console("%s, Kernel mode expected, but function called in user mode.\n", string);
+        halt(1);
+    }
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_gettimeofday()
    Purpose - 
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-int syscall_gettimeofday(sysargs *args)
+void syscall_gettimeofday(sysargs *args)
 {
-    // call sys_clock()
+    // Call sys_clock() to get the current time 
+    //  and package the result back to the caller
     int result = sys_clock();
-    args->arg1 = (void *)result;  // packing to return back to caller
-    return result;
+    args->arg1 = (void *)result;
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_getcputime()
    Purpose - 
    Parameters - 
    Returns - 
@@ -714,24 +720,25 @@ int syscall_gettimeofday(sysargs *args)
    ----------------------------------------------------------------------- */
 void syscall_getcputime(sysargs *args)
 {
-   
+    // Call readtime() to get the current process's cpu time and 
+    //  package result back to caller
     int result = readtime();
     args->arg1 = (void *)result;
-    return;
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
+   Name - syscall_getpid()
    Purpose - 
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-int syscall_getpid(sysargs *args)
+void syscall_getpid(sysargs *args)
 {
+    // Call getpid() to get the current process's PID
+    //  and package result back to caller
     int pid = getpid();
     args->arg1 = pid;
-    return pid;
 }
 
 /* ------------------------------------------------------------------------
