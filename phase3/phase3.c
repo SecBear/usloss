@@ -47,9 +47,9 @@ int numWaitingProc = 0;         // Integer to hold the number of waiting process
 /* ------------------------------------------------------------------------
    Name - start2()
    Purpose - Create first user-level process and wait for it to finish.
-   Parameters - char *arg - 
-   Returns - 
-   Side Effects - 
+   Parameters - char *arg - Pointer to a string argument that can be used during process startup.
+   Returns - int - The termination status of the last process to finish.
+   Side Effects - Initializes system resources, creates and manages processes.
    ----------------------------------------------------------------------- */
 start2(char *arg)
 {
@@ -97,6 +97,7 @@ start2(char *arg)
     {
         // Initialize basic values
         SemTable[i].value = NULL;
+        SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
         SemTable[i].status = SEM_UNUSED;  // indicates a semaphore is freshly allocated
 
@@ -142,10 +143,10 @@ start2(char *arg)
 
 /* ------------------------------------------------------------------------
    Name - syscall_spawn()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To create a new process in response to a SYS_SPAWN system call.
+   Parameters - sysargs *args - Pointer to sysargs structure containing parameters for the new process.
+   Returns - None.
+   Side Effects - A new process is created and added to the process table.
    ----------------------------------------------------------------------- */
 static void syscall_spawn(sysargs *args)
 {
@@ -171,11 +172,15 @@ static void syscall_spawn(sysargs *args)
 }
 
 /* ------------------------------------------------------------------------
-   Name - 
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Name - spawn_real()
+   Purpose - To actually create a new process using fork1, setting up necessary structures.
+   Parameters - char *name - Name of the process.
+                int (*func)(char *) - Function that the new process will run.
+                char *arg - Argument to the function.
+                int stack_size - Stack size for the new process.
+                int priority - Priority of the new process.
+   Returns - int - PID of the newly created process, or -1 on failure.
+   Side Effects - Alters process table and potentially modifies other system state.
    ----------------------------------------------------------------------- */
 int  spawn_real(char *name, int (*func)(char *), char *arg,
                 int stack_size, int priority)
@@ -213,10 +218,10 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
 
 /* ------------------------------------------------------------------------
    Name - launchUserMode()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To start the execution of a user process, setting appropriate modes.
+   Parameters - char *arg - Argument to pass to the process's starting function.
+   Returns - int - The result of the function run by the process.
+   Side Effects - Changes process state and potentially modifies scheduler state.
    ----------------------------------------------------------------------- */
 int launchUserMode(char *arg)
 {   
@@ -245,10 +250,10 @@ int launchUserMode(char *arg)
 
 /* ------------------------------------------------------------------------
    Name - syscall_wait()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To block the current process until one of its children terminates.
+   Parameters - sysargs *args - Pointer to sysargs structure where result will be stored.
+   Returns - None.
+   Side Effects - The current process may be blocked if its children are still active.
    ----------------------------------------------------------------------- */
 int syscall_wait(sysargs *args)
 {
@@ -278,10 +283,10 @@ int syscall_wait(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - wait_real()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To wait for a child process to terminate and retrieve its status.
+   Parameters - int *status - Pointer to an integer where the exit status of the child will be stored.
+   Returns - int - PID of the terminated child, or -1 if there are no children.
+   Side Effects - Modifies the process table and potentially the state of the process.
    ----------------------------------------------------------------------- */
 extern int wait_real(int *status)
 {
@@ -292,10 +297,10 @@ extern int wait_real(int *status)
 
 /* ------------------------------------------------------------------------
    Name - syscall_terminate()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To terminate the current process and optionally its children.
+   Parameters - sysargs *args - Pointer to sysargs structure containing the exit code.
+   Returns - None.
+   Side Effects - The process and potentially its children are terminated.
    ----------------------------------------------------------------------- */
 void syscall_terminate(sysargs *args)
 {
@@ -306,11 +311,10 @@ void syscall_terminate(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - terminate_real()
-   Purpose - Terminates the invoking process and all its children and synchronizes with its parent’s Wait
-    system call.
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Terminates the invoking process and all its children, synchronizing with its parent’s Wait system call.
+   Parameters - int exit_code - Code with which the process is to be terminated.
+   Returns - None.
+   Side Effects - Modifies process table, may release resources.
    ----------------------------------------------------------------------- */
 extern void terminate_real(int exit_code)
 {
@@ -354,10 +358,10 @@ extern void terminate_real(int exit_code)
 
 /* ------------------------------------------------------------------------
    Name - syscall_semcreate()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To create a new semaphore with an initial value.
+   Parameters - sysargs *args - Pointer to sysargs structure containing the initial semaphore value.
+   Returns - None.
+   Side Effects - Modifies the semaphore table and potentially affects process synchronization.
    ----------------------------------------------------------------------- */
 void syscall_semcreate(sysargs *args) 
 {   
@@ -382,10 +386,10 @@ void syscall_semcreate(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - semcreate_real()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Allocates a semaphore and initializes it with the specified value.
+   Parameters - int init_value - Initial value of the semaphore.
+   Returns - int - ID of the newly created semaphore, or -1 on failure.
+   Side Effects - Modifies semaphore table.
    ----------------------------------------------------------------------- */
 int semcreate_real(int init_value) 
 {
@@ -402,6 +406,7 @@ int semcreate_real(int init_value)
     // Initialize semaphore values
     SemTable[semID].status = SEM_USED;
     SemTable[semID].value = init_value;
+    SemTable[semID].mbox = MboxCreate(0,0);     // Create semaphore's private mailbox
     SemTable[semID].mutex = MboxCreate(1,0);    // Create semaphore's mutex
     
     numSems++;  // Increment max number of sems
@@ -411,10 +416,10 @@ int semcreate_real(int init_value)
 
 /* ------------------------------------------------------------------------
    Name - GetNextSemID()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To find a free semaphore ID to use for a new semaphore.
+   Parameters - None.
+   Returns - int - The next free semaphore ID, or -1 if no IDs are available.
+   Side Effects - None directly, but impacts how semaphores are allocated.
    ----------------------------------------------------------------------- */
 int GetNextSemID()
 {
@@ -442,11 +447,11 @@ int GetNextSemID()
 }
 
 /* ------------------------------------------------------------------------
-   Name - syscall_semv
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Name - syscall_semv()
+   Purpose - To perform a V (signal) operation on the specified semaphore.
+   Parameters - sysargs *args - Pointer to sysargs structure containing the semaphore ID.
+   Returns - None.
+   Side Effects - May wake up a process waiting on the semaphore.
    ----------------------------------------------------------------------- */
 void syscall_semv(sysargs *args)
 {
@@ -456,10 +461,10 @@ void syscall_semv(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - semv_real()
-   Purpose - Increments a semaphore.
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Increments the semaphore value and wakes up any blocked process.
+   Parameters - int semID - ID of the semaphore to signal.
+   Returns - int - Always returns 0 (success).
+   Side Effects - Modifies the state of the semaphore and potentially the state of a process.
    ----------------------------------------------------------------------- */
 int  semv_real(int semID)
 {
@@ -490,10 +495,10 @@ int  semv_real(int semID)
 
 /* ------------------------------------------------------------------------
    Name - syscall_semp()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To perform a P (wait) operation on the specified semaphore.
+   Parameters - sysargs *args - Pointer to sysargs structure containing the semaphore ID.
+   Returns - None.
+   Side Effects - May block the calling process if the semaphore value is zero.
    ----------------------------------------------------------------------- */
 void syscall_semp(sysargs *args)
 {
@@ -504,10 +509,10 @@ void syscall_semp(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - semp_real()
-   Purpose - Decrements a sempahore
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Decrements the semaphore value, possibly blocking the calling process.
+   Parameters - int semID - ID of the semaphore to wait on.
+   Returns - int - Always returns 0 (success).
+   Side Effects - Modifies the state of the semaphore and potentially the state of the calling process.
    ----------------------------------------------------------------------- */
 int  semp_real(int semID)
 {
@@ -545,10 +550,10 @@ int  semp_real(int semID)
 
 /* ------------------------------------------------------------------------
    Name - syscall_semfree()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To free a semaphore and wake up all processes waiting on it.
+   Parameters - sysargs *args - Pointer to sysargs structure containing the semaphore ID.
+   Returns - None.
+   Side Effects - Modifies the semaphore table and affects process synchronization.
    ----------------------------------------------------------------------- */
 void syscall_semfree(sysargs *args)
 {
@@ -576,10 +581,10 @@ void syscall_semfree(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - semfree_real()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Frees the specified semaphore and handles any associated cleanup.
+   Parameters - int semID - ID of the semaphore to be freed.
+   Returns - int - 0 if no processes were waiting, 1 if processes were waiting, -1 on error.
+   Side Effects - Modifies semaphore table and may affect processes waiting on the semaphore.
    ----------------------------------------------------------------------- */
 int semfree_real(int semID)
 {
@@ -626,10 +631,11 @@ int semfree_real(int semID)
 
 /* ------------------------------------------------------------------------
    Name - syscall_handler()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Dispatch system call requests to appropriate system call functions.
+   Parameters - int dev - Device type that generated the interrupt (not used here).
+                void *punit - Pointer to a sysargs structure holding system call arguments.
+   Returns - None.
+   Side Effects - Depending on the system call, various system resources are manipulated.
    ----------------------------------------------------------------------- */
 void syscall_handler(int dev, void *punit) 
 {   
@@ -660,10 +666,10 @@ void syscall_handler(int dev, void *punit)
 
 /* ------------------------------------------------------------------------
    Name - nullsys3()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - Default system call handler for undefined system calls.
+   Parameters - sysargs *args_ptr - Pointer to sysargs structure (not used).
+   Returns - None.
+   Side Effects - Terminates the calling process due to invalid system call.
    ----------------------------------------------------------------------- */
 static void nullsys3(sysargs *args_ptr)
 {
@@ -675,10 +681,10 @@ static void nullsys3(sysargs *args_ptr)
 
 /* ------------------------------------------------------------------------
    Name - check_kernel_mode()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To check if the current execution mode is kernel mode and halt otherwise.
+   Parameters - char string[] - String to print in case of error.
+   Returns - None.
+   Side Effects - Halts the machine if not in kernel mode.
    ----------------------------------------------------------------------- */
 void check_kernel_mode(char string[])
 {
@@ -696,10 +702,10 @@ void check_kernel_mode(char string[])
 
 /* ------------------------------------------------------------------------
    Name - syscall_gettimeofday()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To retrieve the current system time.
+   Parameters - sysargs *args - Pointer to sysargs structure where the time will be stored.
+   Returns - None.
+   Side Effects - None directly, but provides time information to calling process.
    ----------------------------------------------------------------------- */
 void syscall_gettimeofday(sysargs *args)
 {
@@ -711,10 +717,10 @@ void syscall_gettimeofday(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - syscall_getcputime()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To retrieve the CPU time used by the current process.
+   Parameters - sysargs *args - Pointer to sysargs structure where the CPU time will be stored.
+   Returns - None.
+   Side Effects - None directly, but provides CPU usage information to the calling process.
    ----------------------------------------------------------------------- */
 void syscall_getcputime(sysargs *args)
 {
@@ -726,10 +732,10 @@ void syscall_getcputime(sysargs *args)
 
 /* ------------------------------------------------------------------------
    Name - syscall_getpid()
-   Purpose - 
-   Parameters - 
-   Returns - 
-   Side Effects - 
+   Purpose - To retrieve the process ID of the calling process.
+   Parameters - sysargs *args - Pointer to sysargs structure where the PID will be stored.
+   Returns - None.
+   Side Effects - None directly, but provides PID information to the calling process.
    ----------------------------------------------------------------------- */
 void syscall_getpid(sysargs *args)
 {
