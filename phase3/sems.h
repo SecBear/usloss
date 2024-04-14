@@ -34,10 +34,10 @@ struct semaphore {   // A semaphore
    list  waiting;    // waiting list of processes waiting on this semaphore
 };
 
-struct list {        // List of children processes
+struct list {        // List of processes
    pProcess pHead;   // Pointer to head process
    pProcess pTail;   // Pointer to tail process
-   int      count;   // Count of children processes
+   int      count;   // Count of processes
 };
 
 // Constants
