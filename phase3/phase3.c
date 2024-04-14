@@ -182,6 +182,13 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     //                   |-> change to launchUserProcess which waits for process to be initialized with parent, proclist, etc. before running (in the case of higher priority child)
     if (pid >= 0)
     {
+
+        // debugging
+        if (pid == 50)
+        {
+            printf("we're here!\n");
+        }
+
         int procSlot = pid % MAXPROC;
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
@@ -190,7 +197,7 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         ProcTable[procSlot].priority = priority;
 
         // Add process to parent's children list
-        AddList(procSlot, ProcTable[my_location].children);
+        AddList(pid, ProcTable[my_location].children);
 
         ProcTable[procSlot].status = STATUS_RUNNING;    // Set process status to running
         ProcTable[procSlot].tsStart = sys_clock();      // Set process start time
@@ -241,9 +248,9 @@ int syscall_wait(sysargs *args)
     if (result >= 0)
     {
         args->arg1 = (void *)result;
-        args->arg2 = (void *)ProcTable[result].termCode;
+        args->arg2 = (void *)ProcTable[result % MAXPROC].termCode;
         // check for children
-        if (ProcTable[result].children->count > 0)
+        if (ProcTable[result % MAXPROC].children->count > 0)
         {
             args->arg4 = (void *)0;     // process has children
         }
@@ -279,7 +286,7 @@ extern void terminate_real(int exit_code)
     blocked processes, the kernel will halt.
     */
    int pid = getpid();
-   process *current = &ProcTable[pid];
+   process *current = &ProcTable[pid % MAXPROC];
 
    // Update process's cpu time
    updateCpuTime(current);
@@ -296,6 +303,13 @@ extern void terminate_real(int exit_code)
         process *current_child = current->children->pHead; 
         while (current_child != NULL)
         {
+
+            // debugging
+            if (current_child->pid == 50)
+            {
+                printf("we're here!\n");
+            }
+
             // check if child has already terminated
             if (current_child->status == STATUS_TERMINATED)
             {
@@ -306,6 +320,7 @@ extern void terminate_real(int exit_code)
             // If not, zap the child and wake it up
             zap(current_child->pid);
             MboxCondReceive(current_child->privateMbox, NULL, 0);
+            popList(current->children); // Child should be done now, so pop it
             current_child = current_child->pNext;
         }
     }
@@ -688,7 +703,7 @@ int syscall_getpid(sysargs *args)
 // Add the current process to a mailbox's list of watiing processes along with its message if it's waiting to send
 int AddList(int pid, list list)
 {
-    process *waiting_process = &ProcTable[pid];  // Get process
+    process *waiting_process = &ProcTable[pid % MAXPROC];  // Get process
 
     // Add process to mailbox's waiting list
     if (pid == NULL)
@@ -759,6 +774,12 @@ int popList(list list)
     if (list->count == 0)
     {
         return NULL;
+    }
+
+    // debugging code
+    if (list->count == 1)
+    {
+        printf("we're here!\n");
     }
 
     // Get the oldest item and replace list's head
