@@ -97,7 +97,6 @@ start2(char *arg)
     {
         // Initialize basic values
         SemTable[i].value = NULL;
-        SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
         SemTable[i].status = SEM_UNUSED;  // indicates a semaphore is freshly allocated
 
