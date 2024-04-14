@@ -296,18 +296,17 @@ extern void terminate_real(int exit_code)
         process *current_child = current->children->pHead; 
         while (current_child != NULL)
         {
-            // Check if child has terminated already
+            // check if child has already terminated
             if (current_child->status == STATUS_TERMINATED)
             {
                 popList(current->children);
                 current_child = current_child->pNext;
+                break;
             }
-            else
-            {
-                zap(current_child->pid);
-                MboxCondReceive(current_child->privateMbox, NULL, 0);
-                current_child = current_child->pNext;
-            }
+            // If not, zap the child and wake it up
+            zap(current_child->pid);
+            MboxCondReceive(current_child->privateMbox, NULL, 0);
+            current_child = current_child->pNext;
         }
     }
 
@@ -483,15 +482,15 @@ int  semp_real(int semID)
         // After unblocked
         process->tsStart = sys_clock();             // Set the new start time to the resume time
 
-        if (sem->status = SEM_FREE) // If we've been free'd
+        if (sem->status == SEM_FREE) // If we've been free'd
         {   
             process->termCode = 1;        // Set status to 1 - there are processes blocked on the semaphore
             terminate_real(pid);         // Terminate
         }
-        if (is_zapped)  // If we've been zapped
+        /*if (is_zapped)  // If we've been zapped
         {
             terminate_real(pid);
-        }
+        }*/
         MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
         MboxReceive(sem->mutex, NULL, 0);    // release mutex
@@ -764,6 +763,15 @@ int popList(list list)
 
     // Get the oldest item and replace list's head
     process *poppedProc = list->pHead; // get the head of the list (oldest item)
+    // Check if this is the only item
+    if (list->count == 1)
+    {
+        list->pHead = NULL; // make head NULL
+        list->pTail = NULL; // make tail NULL
+        list->count--;      // decrement count
+        return 1;           // return
+    }
+
     list->pHead = poppedProc->pNext;           // update the head to the next process
 
     // Update head/tail pointers
