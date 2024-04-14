@@ -46,10 +46,6 @@ start2(char *arg)
      * Check kernel mode here.
      */
 
-    /*
-     * Data structure initialization as needed...
-     */
-
     for (int i = 0; i < MAXSYSCALLS; i++)
     {
         //initialize every system call handler as nullsys3;
@@ -298,11 +294,8 @@ extern void terminate_real(int exit_code)
         }
     }
 
-   // Terminate this process (zap?)
-
-   // At this point, all user processes should have terminated - halt? or done automatically?
+   // Quit (terminate) this process
     quit(exit_code);
-    
 }
 
 static int spawn_launch(char *arg)
@@ -313,16 +306,11 @@ static int spawn_launch(char *arg)
     int (* start_func) (char *);
     char* start_arg;
 
-    // more to add if you see necessary
-
     my_location = getpid() % MAXPROC;
 
     /* Sanity Check */
     /* Maintain the process table entry, you can add more */
     ProcTable[my_location].status = ITEM_IN_USE;
-
-    //You should synchronize with the parent here,
-    //which function to call?
 
     //Then get the start function and its argument
     if ( !is_zapped() ) 
@@ -478,10 +466,6 @@ int  semp_real(int semID)
         MboxSend(sem->mutex, NULL, 0);    // obtain mutex
         sem->value--;   // Still decrement?
         MboxReceive(sem->mutex, NULL, 0);    // release mutex
-
-        // if the semaphore is being freed, need to synchronize with the process that
-        // is freeing the semaphore
-        // Hint: use another zero-slot mailbox
     }
 
    return 0;    // success
@@ -546,7 +530,6 @@ int semfree_real(int semID)
     return result;
 }
 
-// from phase 2
 // Syscall Handler
 void syscall_handler(int dev, void *punit) 
 {
