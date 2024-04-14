@@ -193,19 +193,8 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
         AddList(pid, ProcTable[my_location].children);
 
         ProcTable[procSlot].status = STATUS_RUNNING;    // Set process status to running
-        ProcTable[procSlot].tsStart = sys_clock();      // Set process start time
         MboxCondSend(ProcTable[procSlot].startupMbox, NULL, 0);  // Tell process to start running (unblock in launchUserMode)
     }
-    //more to check the kidpid and put the new process data to the process table
-    //Then synchronize with the child using a mailbox
-      //  result = MboxSend(ProcTable[kid_location].startMbox, &my_location, sizeof(int));
-
-    //more to add
-    // add child to proctable
-    /*
-      int procSlot = pid % MAXPROC;
-      ProcTable[procSlot].pid = pid;  
-    */
     return pid;
 }
 
@@ -281,8 +270,6 @@ extern void terminate_real(int exit_code)
    int pid = getpid();
    process *current = &ProcTable[pid % MAXPROC];
 
-   // Update process's cpu time
-   updateCpuTime(current);
    current->status = STATUS_TERMINATED; // Set status to terminated
    if (current->termCode != 1)  // check if termination code is already set by semfree
     {
@@ -477,11 +464,7 @@ int  semp_real(int semID)
     {
         // Otherwise, add process to waiting list (we're trying to decrement below 0)
         AddList(pid, sem->waiting);                  // Add process to wait list
-        updateCpuTime(process);                     // Update the process's cpu time
         MboxReceive(process->privateMbox, NULL, 0); // block by receiving on the current process's mailbox?
-
-        // After unblocked
-        process->tsStart = sys_clock();             // Set the new start time to the resume time
 
         if (sem->status == SEM_FREE) // If we've been free'd
         {   
@@ -612,61 +595,17 @@ void check_kernel_mode(char string[])
 // Are we supposed to use a certain clock? Using time.h as a placeholder
 int syscall_gettimeofday(sysargs *args)
 {
-    time_t current_time;
-    struct tm *time_info;
-    int decimal_time;
-
-    // Get current time as Unix timestamp
-    time(&current_time);
-
-    // Convert to local time
-    time_info = localtime(&current_time);
-
-    // Calculate decimal time
-    decimal_time = (time_info->tm_hour * 100) + time_info->tm_min;
-
-    args->arg1 = (void *)decimal_time;  // packing to return back to caller
-
-    return decimal_time;
-}
-
-// from phase1
-int updateCpuTime(process *process)
-{
-   int currentTime = sys_clock();   // Get system time 
-
-   // Check that process isn't currently running
-   if (process->status != STATUS_RUNNING)
-   {
-      return 0;
-   }
-
-   // Add to the cpu_time, the amount of time the process has spent executing
-   process->cpu_time += (currentTime - process->tsStart);
-
-   // Set status to temporary non-running status
-   //process->status = STATUS_CPUCALC;
-
-   return process->cpu_time;
+    // call sys_clock()
+    int result = sys_clock();
+    args->arg1 = (void *)result;  // packing to return back to caller
+    return result;
 }
 
 void syscall_getcputime(sysargs *args)
 {
-    // Get process
-    int pid = getpid();
-    process *proc = &ProcTable[pid];
-    int cpu_time;
-    
-    // If process is running, get it's updated cpu time
-    if (proc->status == STATUS_RUNNING)
-    {
-        cpu_time = updateCpuTime(proc);
-        args->arg1 = (void *)cpu_time;  // packing to return back to caller
-        return;
-    }
-
-    // Otherwise, cpu time should be updated
-    args->arg1 = (void *)proc->cpu_time;
+   
+    int result = readtime();
+    args->arg1 = (void *)result;
     return;
 }
 

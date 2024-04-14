@@ -18,9 +18,6 @@ struct process {                        // A process
    int      status;           // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;      // Private mailbox ID
    int      startupMbox;      // Startup mailbox ID
-   int      cpu_time;         // Time on CPU
-   int      tsStart;          // Time the process started executing
-   int      tsEnd;            // Time when process stopped executing
    int      termCode;         // Termination code
    int      child_waiting;    // 0 for neither, 1 for child, 2 for waiting
 
