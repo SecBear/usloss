@@ -29,15 +29,28 @@ void syscall_semfree(sysargs *args);
 int syscall_gettimeofday(sysargs *args);
 void syscall_getcputime(sysargs *args);
 
-// Globals
+/* ------------------------------------------------------------------------
+   Global Variables
+   ----------------------------------------------------------------------- */
 process ProcTable[MAXPROC];     // Array of processes
 semaphore SemTable[MAXSEMS];       // Array of seamphores
 
 int numSems = 0;                // Global count of semaphores
 int next_sem_id = 0;            // Integer to hold the next semaphore ID
 int numWaitingProc = 0;         // Integer to hold the number of waiting processes
+/* ------------------------------------------------------------------------ */
 
-// start2
+
+/* ------------------------------------------------------------------------
+   Functions
+
+/* ------------------------------------------------------------------------
+   Name - Start2
+   Purpose - Create first user-level process and wait for it to finish.
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 start2(char *arg)
 {
     int		pid;
@@ -48,47 +61,51 @@ start2(char *arg)
 
     for (int i = 0; i < MAXSYSCALLS; i++)
     {
-        //initialize every system call handler as nullsys3;
+        // Initialize every system call handler as nullsys3;
         sys_vec[i] = nullsys3;
     }
-    sys_vec[SYS_SPAWN] = syscall_spawn; // spawn system call handler 
-    sys_vec[SYS_WAIT] = syscall_wait;   // wait
+
+    // Initialize each system call handler that is required individually
+    sys_vec[SYS_SPAWN] = syscall_spawn;         // spawn 
+    sys_vec[SYS_WAIT] = syscall_wait;           // wait
     sys_vec[SYS_TERMINATE] = syscall_terminate; // terminate
     sys_vec[SYS_SEMCREATE] = syscall_semcreate; // semcreate
     sys_vec[SYS_SEMP] = syscall_semp;           // semp
     sys_vec[SYS_SEMV] = syscall_semv;           // semv
     sys_vec[SYS_SEMFREE] = syscall_semfree;     // semfree
-    sys_vec[SYS_GETTIMEOFDAY] = syscall_gettimeofday; // get time of day?
-    sys_vec[SYS_CPUTIME] = syscall_getcputime;     // cpu time?
-    sys_vec[SYS_GETPID] = syscall_getpid;       // get pid?
-    // more?
+    sys_vec[SYS_GETTIMEOFDAY] = syscall_gettimeofday; // get time of day
+    sys_vec[SYS_CPUTIME] = syscall_getcputime;  // cpu time
+    sys_vec[SYS_GETPID] = syscall_getpid;       // get pid
+    int_vec[SYSCALL_INT] = syscall_handler;     // system call handler
 
-    int_vec[SYSCALL_INT] = syscall_handler;
-
-    // TODO: Initialize Proc Table
+    // Initialize Process Table
     for (int i = 0; i < MAXPROC; ++i)
     {
+        // Initialize mailboxes
         ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
         ProcTable[i].privateMbox = MboxCreate(0,0);     // Initialize private mailboxes
 
-        ProcTable[i].children = malloc(sizeof(struct list));    // Initialize the children list
+        // Initialize the children list
+        ProcTable[i].children = malloc(sizeof(struct list));
         ProcTable[i].children->pHead = NULL;
         ProcTable[i].children->pTail = NULL;
         ProcTable[i].children->count = 0;
     }
 
-    // TODO: Initialize semaphore table
+    // Initialize Semaphore Table
     for (int i = 0; i < MAXSEMS; i++)
     {
+        // Initialize basic values
         SemTable[i].value = NULL;
         SemTable[i].mbox = NULL;
         SemTable[i].sid = NULL;
         SemTable[i].status = SEM_UNUSED;  // indicates a semaphore is freshly allocated
 
-        SemTable[i].waiting = malloc(sizeof(struct list)); // Allocate memory for the waiting list
-        SemTable[i].waiting->pHead = NULL;  // Initialize Waiting list pHead to NULL
-        SemTable[i].waiting->pTail = NULL;  // Initialize Waiting list pTail to NULL
-        SemTable[i].waiting->count = 0;     // Initialize waiting list count to 0
+        // Initialize waiting list
+        SemTable[i].waiting = malloc(sizeof(struct list));
+        SemTable[i].waiting->pHead = NULL;  
+        SemTable[i].waiting->pTail = NULL;  
+        SemTable[i].waiting->count = 0;     
     }
 
     /*
@@ -124,6 +141,13 @@ start2(char *arg)
 
 } /* start2 */
 
+/* ------------------------------------------------------------------------
+   Name - syscall_spawn
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 static void syscall_spawn(sysargs *args)
 {
     int(*func)(char *);
@@ -155,6 +179,13 @@ static void syscall_spawn(sysargs *args)
     }
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int  spawn_real(char *name, int (*func)(char *), char *arg,
                 int stack_size, int priority)
 {
@@ -194,6 +225,13 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     return pid;
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int launchUserMode(char *arg)
 {   
     int pid;
@@ -219,6 +257,13 @@ int launchUserMode(char *arg)
     Terminate(result);
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int syscall_wait(sysargs *args)
 {
     int *status = (void *)args->arg2;
@@ -243,18 +288,39 @@ int syscall_wait(sysargs *args)
     }
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 extern int wait_real(int *status)
 {
     int result = join(&status);
     return result;
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_terminate(sysargs *args)
 {
     int exit_code = (void *) args->arg1;
     terminate_real(exit_code);
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 extern void terminate_real(int exit_code)
 {
     /* Terminates the invoking process and all its children and synchronizes with its parent’s Wait
@@ -298,37 +364,14 @@ extern void terminate_real(int exit_code)
     quit(exit_code);
 }
 
-static int spawn_launch(char *arg)
-{
-    int parent_location = 0;
-    int my_location;
-    int result;
-    int (* start_func) (char *);
-    char* start_arg;
 
-    my_location = getpid() % MAXPROC;
-
-    /* Sanity Check */
-    /* Maintain the process table entry, you can add more */
-    ProcTable[my_location].status = ITEM_IN_USE;
-
-    //Then get the start function and its argument
-    if ( !is_zapped() ) 
-    {
-        //more code if you see necessary
-        //Then set up use mode
-        psr_set(psr_get() & ~PSR_CURRENT_MODE);
-        result = (start_func)(start_arg);
-        Terminate(result);
-    }
-    else {
-    terminate_real(0);
-    }
-    printf("spawn_launch(): should not see this message following Terminate!\n");
-    return 0;
-} /* spawn_launch */
-
-
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_semcreate(sysargs *args) {   //useless function having issues with result
     int init_value = (int)(long)args->arg1;
 
@@ -344,6 +387,13 @@ void syscall_semcreate(sysargs *args) {   //useless function having issues with 
     }
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int semcreate_real(int init_value) {     //this is dumb and needs fixing
 
     // Get the next semaphore ID
@@ -366,6 +416,13 @@ int semcreate_real(int init_value) {     //this is dumb and needs fixing
     return semID;
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int GetNextSemID()
 {
    int new_sem_id = -1;                  // Initialize new mbox id to -1
@@ -391,14 +448,26 @@ int GetNextSemID()
    return new_sem_id;
 }
 
-// Increment semaphore
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_semv(sysargs *args)
 {
     int semID = (int)args->arg1;    // parse argument (semaphore ID)
     semv_real(semID);               // call semv_real with semID
 }
 
-// increment semaphore
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - Increments a semaphore.
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int  semv_real(int semID)
 {
     semaphore *sem = &SemTable[semID];
@@ -427,13 +496,26 @@ int  semv_real(int semID)
     return 0; // success
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_semp(sysargs *args)
 {
     int semID = (int)args->arg1;    // parse argument (semaphore ID)
     semp_real(semID);               // call semp_real with semID
 }
 
-// decrement semaphore
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - Decrements a sempahore
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int  semp_real(int semID)
 {
     semaphore *sem = &SemTable[semID];  // Get the semaphore
@@ -471,6 +553,13 @@ int  semp_real(int semID)
    return 0;    // success
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_semfree(sysargs *args)
 {
     int semID = args->arg1;             // grab sem ID
@@ -489,6 +578,13 @@ void syscall_semfree(sysargs *args)
     }
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int semfree_real(int semID)
 {
     semaphore *sem = &SemTable[semID];  // Get semaphore
@@ -530,7 +626,13 @@ int semfree_real(int semID)
     return result;
 }
 
-// Syscall Handler
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_handler(int dev, void *punit) 
 {
    check_kernel_mode("sys_handler");
@@ -553,7 +655,13 @@ void syscall_handler(int dev, void *punit)
    }
 }
 
-// pulled from lecture 10
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 static void nullsys3(sysargs *args_ptr)
 {
     printf("nullsys3(): Invalid syscall %d\n", args_ptr->number);
@@ -561,6 +669,13 @@ static void nullsys3(sysargs *args_ptr)
     terminate_real(1);
 } /* nullsys3 */
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void check_kernel_mode(char string[])
 {
    int currentPsr = psr_get();
@@ -575,7 +690,13 @@ void check_kernel_mode(char string[])
    }
 }
 
-// Are we supposed to use a certain clock? Using time.h as a placeholder
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int syscall_gettimeofday(sysargs *args)
 {
     // call sys_clock()
@@ -584,6 +705,13 @@ int syscall_gettimeofday(sysargs *args)
     return result;
 }
 
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 void syscall_getcputime(sysargs *args)
 {
    
@@ -592,7 +720,13 @@ void syscall_getcputime(sysargs *args)
     return;
 }
 
-// Get processes pid
+/* ------------------------------------------------------------------------
+   Name - 
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
 int syscall_getpid(sysargs *args)
 {
     int pid = getpid();
@@ -606,9 +740,8 @@ int syscall_getpid(sysargs *args)
    Parameters - int pid: the PID of the process to add.
                 list list: the list pointer to add the process to.
    Returns - 1 if the process is successfully added to the waiting list, 0 otherwise.
-   Side Effects - May increase the count of waiting processes for the mailbox.
+   Side Effects - May increase the count of the waiting processes.
    ----------------------------------------------------------------------- */
-// Add the current process to a mailbox's list of watiing processes along with its message if it's waiting to send
 int AddList(int pid, list list)
 {
     process *waiting_process = &ProcTable[pid % MAXPROC];  // Get process
@@ -673,7 +806,6 @@ int AddList(int pid, list list)
    Returns - 1 if a process is successfully removed, 0 if the waiting list is empty.
    Side Effects - Decreases the count of waiting processes for the mailbox.
    ----------------------------------------------------------------------- */
-// PopList functions to pop the first item added to the linked list (head)
 int popList(list list)
 {
     check_kernel_mode("popWaitList\n");
@@ -695,7 +827,8 @@ int popList(list list)
         return 1;           // return
     }
 
-    list->pHead = poppedProc->pNext;           // update the head to the next process
+    // Update the head to the next process
+    list->pHead = poppedProc->pNext;           
 
     // Update head/tail pointers
     if (list->pHead == NULL)
