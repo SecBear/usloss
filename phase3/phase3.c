@@ -182,13 +182,6 @@ int  spawn_real(char *name, int (*func)(char *), char *arg,
     //                   |-> change to launchUserProcess which waits for process to be initialized with parent, proclist, etc. before running (in the case of higher priority child)
     if (pid >= 0)
     {
-
-        // debugging
-        if (pid == 50)
-        {
-            printf("we're here!\n");
-        }
-
         int procSlot = pid % MAXPROC;
         ProcTable[procSlot].pid = pid;
         ProcTable[procSlot].parentPid = getpid();
@@ -303,13 +296,6 @@ extern void terminate_real(int exit_code)
         process *current_child = current->children->pHead; 
         while (current_child != NULL)
         {
-
-            // debugging
-            if (current_child->pid == 50)
-            {
-                printf("we're here!\n");
-            }
-
             // check if child has already terminated
             if (current_child->status == STATUS_TERMINATED)
             {
@@ -774,12 +760,6 @@ int popList(list list)
     if (list->count == 0)
     {
         return NULL;
-    }
-
-    // debugging code
-    if (list->count == 1)
-    {
-        printf("we're here!\n");
     }
 
     // Get the oldest item and replace list's head
