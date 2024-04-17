@@ -1,4 +1,4 @@
-#define DEBUG2 1
+#define DEBUG4 1
 #pragma once
 
 typedef struct driver_proc * driver_proc_ptr;
@@ -37,7 +37,9 @@ struct process {              // A process
    int      privateMbox;            // Private mailbox ID
    int      startupMbox;            // Startup mailbox ID
    int      termCode;               // Termination code
-   int      child_waiting;          // Flag to indicate child or waiting process: 0 for neither, 1 for child, 2 for waiting
+   double   sleepStartTime;         // Time the process went to sleep (for calculation)
+   double   sleepTime;              // Number of seconds to sleep
+   int      sleepFlag;              // 0 is non-sleeping, 1 is sleeping
 
    list children;                   // Linked list of children processes
 };

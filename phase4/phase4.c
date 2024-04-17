@@ -18,11 +18,14 @@ static int running; /*semaphore to synchronize drivers and start3*/
 
 static struct driver_proc Driver_Table[MAXPROC];    // Driver Table
 process ProcTable[MAXPROC];                         // Process Table
+list SleepingProcs;                                 // Linked list of sleeping processes
 
 static int diskpids[DISK_UNITS];
 
 static int	ClockDriver(char *);
 static int	DiskDriver(char *);
+
+int numSleepingProc;    // Global number of sleeping processes
 /* ------------------------------------------------------------------------ */
 
 
@@ -36,7 +39,8 @@ static int	DiskDriver(char *);
    Returns - int - The termination status of the last process to finish.
    Side Effects - Initializes system resources, creates and manages processes.
    ----------------------------------------------------------------------- */
-int start3(char *arg)
+int 
+start3(char *arg)
 {
     char	name[128];
     char        termbuf[10];
@@ -48,8 +52,18 @@ int start3(char *arg)
      * Check kernel mode here.
 
      */
+
     /* Assignment system call handlers */
-    sys_vec[SYS_SLEEP]     = sleep_first;
+    for (int i = 0; i < MAXSYSCALLS; i++)
+    {
+        // Initialize every system call handler as nullsys3;
+        sys_vec[i] = nullsys3;
+    }
+    // Initialize each system call handler that is required individually
+    sys_vec[SYS_SLEEP]     = syscall_sleep;
+    sys_vec[SYS_DISKREAD] = syscall_disk_read;
+    // disk write
+    // disk size
     //more for this phase's system call handlings
 
 
@@ -90,7 +104,6 @@ int start3(char *arg)
      * the stack size depending on the complexity of your
      * driver, and perhaps do something with the pid returned.
      */
-
     for (i = 0; i < DISK_UNITS; i++) {
         sprintf(buf, "%d", i);
         sprintf(name, "DiskDriver%d", i);
@@ -141,6 +154,20 @@ ClockDriver(char *arg)
 	 * Compute the current time and wake up any processes
 	 * whose time has come.
 	 */
+    double curTime = (double)sys_clock();
+    curTime = curTime / 1,000,000;              // Convert time (in microseconds) to seconds
+    process *current = SleepingProcs->pHead;
+    while (current != NULL)
+    {
+        double sleepStartTime = current->sleepStartTime;   // Convert time to seconds
+        double timeSlept = curTime - sleepStartTime;       // Check how long process has slept for
+        if (timeSlept >= current->sleepTime)              // Check if we've slept the required time
+        {
+            // Wake up process
+            popList(SleepingProcs); // TODO: new functions for managing sleeping process queue by time to sleep
+            MboxCondSend(current->privateMbox, NULL, 0);
+        } 
+    }
     }
 }
 
@@ -177,4 +204,170 @@ DiskDriver(char *arg)
 
    //more code 
     return 0;
+}
+
+int sleep_function(int seconds)
+{   
+    int pid = getpid();
+    process *current = &ProcTable[pid % MAXPROC];
+
+    // process requests a delay for x seconds (how many microseconds in a second)
+    current->sleepFlag = 1;
+    current->sleepTime = seconds;
+    current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
+
+    // process puts itself on a queue - process can block on it's own private mbox
+    addList(pid, &SleepingProcs);   // TODO: Need to add based on wake-up time for each process
+
+    mboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
+
+    // clock driver checks on each clock interrupt to see which process(es) to wake up
+        // driver calls waitdevice to wait for interrupt handler
+        // compute current time and wake up any process whose time has come
+
+    // After wakeup... check if been zapped?
+
+}
+
+
+/* ------------------------------------------------------------------------
+   Name - nullsys3()
+   Purpose - Default system call handler for undefined system calls.
+   Parameters - sysargs *args_ptr - Pointer to sysargs structure (not used).
+   Returns - None.
+   Side Effects - Terminates the calling process due to invalid system call.
+   ----------------------------------------------------------------------- */
+static void nullsys3(sysargs *args_ptr)
+{
+    // Print error message and terminate
+    printf("nullsys3(): Invalid syscall %d\n", args_ptr->number);
+    printf("nullsys3(): process %d terminating\n", getpid());
+    terminate_real(1);
+} /* nullsys3 */
+
+/* ------------------------------------------------------------------------
+   Name - addList
+   Purpose - Adds the current process to the specified linked list.
+   Parameters - int pid: the PID of the process to add.
+                list list: the list pointer to add the process to.
+   Returns - 1 if the process is successfully added to the waiting list, 0 otherwise.
+   Side Effects - May increase the count of the waiting processes.
+   ----------------------------------------------------------------------- */
+int addList(int pid, list list)
+{
+    process *waiting_process = &ProcTable[pid % MAXPROC];  // Get process
+
+    // Add process to mailbox's waiting list
+    if (pid == NULL)
+    {
+        // Invalid process pointer
+        return 0;
+    }
+
+    // Check if the process is already on the list
+    if (list->count > 0)
+    {
+        process *current = list->pHead;
+        if (current != NULL)
+        {
+            if (current->pid == pid)
+            {
+                // Process is already in the list
+                return 0;
+            }
+            current = current->pNext; // Move to next process
+        }
+    }
+
+    // Update new waiting process's pointers
+    waiting_process->pNext = NULL;
+    waiting_process->pPrev = list->pTail;
+
+    // Update the previous tail's next pointer to new process
+    if (list->pTail != NULL)
+    {
+        list->pTail->pNext = waiting_process;
+    }
+
+    // New tail is the new process
+    list->pTail = waiting_process;
+
+    // If the list is empty, make new process the head
+    if (list->pHead == NULL)
+    {
+        list->pHead = waiting_process;
+    }
+
+    // Increment the list count
+    list->count++;
+
+    // Increment global number of sleeping processes if this is a sleeping process
+    if (waiting_process->sleepFlag == 1)
+    {
+        numSleepingProc++;
+    }
+
+   return 1;
+}
+
+/* ------------------------------------------------------------------------
+   Name - popList
+   Purpose - Removes the first process from the list.
+   Parameters - list - the list pointer to the list to pop the process off of.
+   Returns - 1 if a process is successfully removed, 0 if the waiting list is empty.
+   Side Effects - Decreases the count of waiting processes for the mailbox.
+   ----------------------------------------------------------------------- */
+int popList(list list)
+{
+    check_kernel_mode("popWaitList\n");
+
+    // Check if list is empty
+    if (list->count == 0)
+    {
+        return NULL;
+    }
+
+    // Get the oldest item and replace list's head
+    process *poppedProc = list->pHead; // get the head of the list (oldest item)
+    // Check if this is the only item
+    if (list->count == 1)
+    {
+        list->pHead = NULL; // make head NULL
+        list->pTail = NULL; // make tail NULL
+        list->count--;      // decrement count
+        return 1;           // return
+    }
+
+    // Update the head to the next process
+    list->pHead = poppedProc->pNext;           
+
+    // Update head/tail pointers
+    if (list->pHead == NULL)
+    {
+        list->pTail = NULL; // If the head becomes NULL (no more items), update the tail as well
+    }
+    else
+    {
+        list->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
+    }
+
+    // Update the popped process's pointers
+    if (poppedProc->pNext != NULL)
+    {
+        poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
+    }
+
+    // Decrement the count of processes in the list
+    list->count--;
+
+    // Decrement global count of sleeping processes and reset sleep flag if this is a sleeping process
+    if (poppedProc->sleepFlag == 1)
+    {
+        poppedProc->sleepFlag = 0;
+        poppedProc->sleepStartTime = 0;
+        poppedProc->sleepTime = 0;
+        numSleepingProc--;
+    }
+
+    return 1;
 }
