@@ -1,4 +1,5 @@
 #define DEBUG4 1
+#define debugflag4 2 // not sure what this is
 #pragma once
 
 typedef struct driver_proc * driver_proc_ptr;

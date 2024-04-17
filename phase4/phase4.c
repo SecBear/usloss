@@ -11,6 +11,15 @@
 #include <provided_prototypes.h>
 #include "driver.h"
 
+static int	ClockDriver(char *);
+static int	DiskDriver(char *);
+void syscall_sleep(sysargs *args);
+int sleep_real(int seconds);
+void syscall_disk_read(sysargs *args);
+static void nullsys3(sysargs *args_ptr);
+int addSleepList(int pid, list list);
+int popList(list list);
+
 /* ------------------------------------------------------------------------
    Global Variables
    ----------------------------------------------------------------------- */
@@ -22,8 +31,7 @@ list SleepingProcs;                                 // Linked list of sleeping p
 
 static int diskpids[DISK_UNITS];
 
-static int	ClockDriver(char *);
-static int	DiskDriver(char *);
+
 
 int numSleepingProc;    // Global number of sleeping processes
 /* ------------------------------------------------------------------------ */
@@ -104,6 +112,7 @@ start3(char *arg)
      * the stack size depending on the complexity of your
      * driver, and perhaps do something with the pid returned.
      */
+    char buf[10]; // stack size?
     for (i = 0; i < DISK_UNITS; i++) {
         sprintf(buf, "%d", i);
         sprintf(name, "DiskDriver%d", i);
@@ -171,6 +180,41 @@ ClockDriver(char *arg)
     }
 }
 
+void syscall_sleep(sysargs *args)
+{
+    int seconds = args->arg1;
+    // Check for invalid args
+    if (seconds <= 0)
+    {
+        args->arg4 = (void *)-1;
+        return;
+    }
+    sleep_real(seconds);
+}
+
+int sleep_real(int seconds)
+{   
+    int pid = getpid();
+    process *current = &ProcTable[pid % MAXPROC];
+
+    // process requests a delay for x seconds (how many microseconds in a second)
+    current->sleepFlag = 1;
+    current->sleepTime = seconds;
+    current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
+
+    // process puts itself on a queue - process can block on it's own private mbox
+    addSleepList(pid, &SleepingProcs);   // Add process to the queue based on sleepTime
+
+    mboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
+
+    // clock driver checks on each clock interrupt to see which process(es) to wake up
+        // driver calls waitdevice to wait for interrupt handler
+        // compute current time and wake up any process whose time has come
+
+    // After wakeup... check if been zapped?
+
+}
+
 static int
 DiskDriver(char *arg)
 {
@@ -206,28 +250,12 @@ DiskDriver(char *arg)
     return 0;
 }
 
-int sleep_function(int seconds)
-{   
-    int pid = getpid();
-    process *current = &ProcTable[pid % MAXPROC];
-
-    // process requests a delay for x seconds (how many microseconds in a second)
-    current->sleepFlag = 1;
-    current->sleepTime = seconds;
-    current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
-
-    // process puts itself on a queue - process can block on it's own private mbox
-    addSleepList(pid, &SleepingProcs);   // Add process to the queue based on sleepTime
-
-    mboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
-
-    // clock driver checks on each clock interrupt to see which process(es) to wake up
-        // driver calls waitdevice to wait for interrupt handler
-        // compute current time and wake up any process whose time has come
-
-    // After wakeup... check if been zapped?
-
+void syscall_disk_read(sysargs *args)
+{
+    // do something
 }
+
+
 
 
 /* ------------------------------------------------------------------------
