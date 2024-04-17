@@ -30,8 +30,7 @@ process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
 
 static int diskpids[DISK_UNITS];
-
-
+int num_tracks[DISK_UNITS];         // Array to store number of tracks for each disk unit
 
 int numSleepingProc;    // Global number of sleeping processes
 /* ------------------------------------------------------------------------ */
@@ -143,6 +142,10 @@ start3(char *arg)
     join(&status); /* for the Clock Driver */
 }
 
+
+/*----------------------------------- Clock -----------------------------------
+
+------------------------------------------------------------------------------- */
 static int
 ClockDriver(char *arg)
 {
@@ -166,16 +169,23 @@ ClockDriver(char *arg)
     double curTime = (double)sys_clock();
     curTime = curTime / 1,000,000;              // Convert time (in microseconds) to seconds
     process *current = SleepingProcs->pHead;
+    int count = 1;
     while (current != NULL)
     {
         double sleepStartTime = current->sleepStartTime;   // Convert time to seconds
         double timeSlept = curTime - sleepStartTime;       // Check how long process has slept for
         if (timeSlept >= current->sleepTime)              // Check if we've slept the required time
         {
+            if (count != 1) // Debugging
+            {
+                printf("ERROR: ClockDriver: process to wake up was not first on list, need new popList function?\n");
+            }
             // Wake up process
-            popList(SleepingProcs); // TODO: new functions for managing sleeping process queue by time to sleep
+            popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
             MboxCondSend(current->privateMbox, NULL, 0);
         } 
+        count++;
+        current = current->pNext;
     }
     }
 }
@@ -203,9 +213,9 @@ int sleep_real(int seconds)
     current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
 
     // process puts itself on a queue - process can block on it's own private mbox
-    addSleepList(pid, &SleepingProcs);   // Add process to the queue based on sleepTime
+    addSleepList(pid, SleepingProcs);   // Add process to the queue based on sleepTime
 
-    mboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
+    MboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
 
     // clock driver checks on each clock interrupt to see which process(es) to wake up
         // driver calls waitdevice to wait for interrupt handler
@@ -214,6 +224,10 @@ int sleep_real(int seconds)
     // After wakeup... check if been zapped?
 
 }
+
+/* ----------------------- Disk ---------------------------------
+
+----------------------------------------------------------------- */
 
 static int
 DiskDriver(char *arg)
@@ -235,6 +249,9 @@ DiskDriver(char *arg)
 
    result = device_output(DISK_DEV, unit, &my_request);
 
+/* ----------------------- Disk ---------------------------------
+
+----------------------------------------------------------------- */
    if (result != DEV_OK) {
       console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
       console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
@@ -257,6 +274,9 @@ void syscall_disk_read(sysargs *args)
 
 
 
+/* -------------------------------- Other Functions ----------------------------------
+
+-------------------------------------------------------------------------------------- */
 
 /* ------------------------------------------------------------------------
    Name - nullsys3()
@@ -272,6 +292,27 @@ static void nullsys3(sysargs *args_ptr)
     printf("nullsys3(): process %d terminating\n", getpid());
     terminate_real(1);
 } /* nullsys3 */
+
+/* ------------------------------------------------------------------------
+   Name - check_kernel_mode()
+   Purpose - To check if the current execution mode is kernel mode and halt otherwise.
+   Parameters - char string[] - String to print in case of error.
+   Returns - None.
+   Side Effects - Halts the machine if not in kernel mode.
+   ----------------------------------------------------------------------- */
+void check_kernel_mode(char string[])
+{
+    // Get the current process status register (PSR)
+    int currentPsr = psr_get();
+
+    // if the kernel mode bit is not set, then halt
+    if ((currentPsr & PSR_CURRENT_MODE) == 0)
+    {
+        // not in kernel mode
+        console("%s, Kernel mode expected, but function called in user mode.\n", string);
+        halt(1);
+    }
+}
 
 /* ------------------------------------------------------------------------
    Name - addSleepList
