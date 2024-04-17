@@ -11,17 +11,32 @@
 #include <provided_prototypes.h>
 #include "driver.h"
 
+/* ------------------------------------------------------------------------
+   Global Variables
+   ----------------------------------------------------------------------- */
 static int running; /*semaphore to synchronize drivers and start3*/
 
-static struct driver_proc Driver_Table[MAXPROC];
+static struct driver_proc Driver_Table[MAXPROC];    // Driver Table
+process ProcTable[MAXPROC];                         // Process Table
 
 static int diskpids[DISK_UNITS];
 
 static int	ClockDriver(char *);
 static int	DiskDriver(char *);
+/* ------------------------------------------------------------------------ */
 
-int
-start3(char *arg)
+
+/* ------------------------------------------------------------------------
+   Functions
+
+/* ------------------------------------------------------------------------
+   Name - start3()
+   Purpose - 
+   Parameters - char *arg - Pointer to a string argument that can be used during process startup.
+   Returns - int - The termination status of the last process to finish.
+   Side Effects - Initializes system resources, creates and manages processes.
+   ----------------------------------------------------------------------- */
+int start3(char *arg)
 {
     char	name[128];
     char        termbuf[10];
@@ -39,7 +54,18 @@ start3(char *arg)
 
 
     /* Initialize the phase 4 process table */
+    for (int i = 0; i < MAXPROC; ++i)
+    {
+        // Initialize mailboxes
+        ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
+        ProcTable[i].privateMbox = MboxCreate(0,0);     // Initialize private mailboxes
 
+        // Initialize the children list
+        ProcTable[i].children = malloc(sizeof(struct list));
+        ProcTable[i].children->pHead = NULL;
+        ProcTable[i].children->pTail = NULL;
+        ProcTable[i].children->count = 0;
+    } 
 
     /*
      * Create clock device driver 
