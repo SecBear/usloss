@@ -61,11 +61,11 @@ start3(char *arg)
      */
 
     /* Assignment system call handlers */
-    for (int i = 0; i < MAXSYSCALLS; i++)
+    /*for (int i = 0; i < MAXSYSCALLS; i++)
     {
         // Initialize every system call handler as nullsys3;
         sys_vec[i] = nullsys3;
-    }
+    }*/
     // Initialize each system call handler that is required individually
     sys_vec[SYS_SLEEP]     = syscall_sleep;
     sys_vec[SYS_DISKREAD] = syscall_disk_read;
@@ -87,6 +87,12 @@ start3(char *arg)
         ProcTable[i].children->pTail = NULL;
         ProcTable[i].children->count = 0;
     } 
+
+    // Initialize linked list of sleeping processes
+    list SleepingProcs = (list)malloc(sizeof(struct list));
+    SleepingProcs->pHead = NULL;
+    SleepingProcs->pTail = NULL;
+    SleepingProcs->count = 0;
 
     /*
      * Create clock device driver 
@@ -111,8 +117,8 @@ start3(char *arg)
      * the stack size depending on the complexity of your
      * driver, and perhaps do something with the pid returned.
      */
-    char buf[10]; // stack size?
     for (i = 0; i < DISK_UNITS; i++) {
+        char buf[32]; // stack size?
         sprintf(buf, "%d", i);
         sprintf(name, "DiskDriver%d", i);
         diskpids[i] = fork1(name, DiskDriver, buf, USLOSS_MIN_STACK, 2);
@@ -168,7 +174,11 @@ ClockDriver(char *arg)
 	 */
     double curTime = (double)sys_clock();
     curTime = curTime / 1,000,000;              // Convert time (in microseconds) to seconds
-    process *current = SleepingProcs->pHead;
+    process *current = NULL;
+    if (SleepingProcs != NULL)
+    {
+        current = SleepingProcs->pHead;
+    }
     int count = 1;
     while (current != NULL)
     {
@@ -241,7 +251,7 @@ DiskDriver(char *arg)
 
    if (DEBUG4 && debugflag4)
       console("DiskDriver(%d): started\n", unit);
-
+    semv_real(running);
 
    /* Get the number of tracks for this disk */
    my_request.opr  = DISK_TRACKS;
@@ -249,9 +259,6 @@ DiskDriver(char *arg)
 
    result = device_output(DISK_DEV, unit, &my_request);
 
-/* ----------------------- Disk ---------------------------------
-
------------------------------------------------------------------ */
    if (result != DEV_OK) {
       console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
       console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
@@ -263,7 +270,11 @@ DiskDriver(char *arg)
       console("DiskDriver(%d): tracks = %d\n", unit, num_tracks[unit]);
 
 
-   //more code 
+    //more code 
+    while (!is_zapped())
+    {
+
+    }
     return 0;
 }
 
@@ -334,7 +345,7 @@ int addSleepList(int pid, list list)
     }
 
     // Is there a process on the list?
-    if (list->pHead == NULL)    // List is empty
+    if (list == NULL)    // List is empty
     {
         // Initialize this list
         sleeping_process->pNext = NULL;
