@@ -217,7 +217,7 @@ int sleep_function(int seconds)
     current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
 
     // process puts itself on a queue - process can block on it's own private mbox
-    addList(pid, &SleepingProcs);   // TODO: Need to add based on wake-up time for each process
+    addSleepList(pid, &SleepingProcs);   // Add process to the queue based on sleepTime
 
     mboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
 
@@ -246,16 +246,16 @@ static void nullsys3(sysargs *args_ptr)
 } /* nullsys3 */
 
 /* ------------------------------------------------------------------------
-   Name - addList
+   Name - addSleepList
    Purpose - Adds the current process to the specified linked list.
    Parameters - int pid: the PID of the process to add.
                 list list: the list pointer to add the process to.
    Returns - 1 if the process is successfully added to the waiting list, 0 otherwise.
    Side Effects - May increase the count of the waiting processes.
    ----------------------------------------------------------------------- */
-int addList(int pid, list list)
+int addSleepList(int pid, list list)
 {
-    process *waiting_process = &ProcTable[pid % MAXPROC];  // Get process
+    process *sleeping_process = &ProcTable[pid % MAXPROC];  // Get process
 
     // Add process to mailbox's waiting list
     if (pid == NULL)
@@ -264,50 +264,49 @@ int addList(int pid, list list)
         return 0;
     }
 
-    // Check if the process is already on the list
-    if (list->count > 0)
+    // Is there a process on the list?
+    if (list->pHead == NULL)    // List is empty
     {
+        // Initialize this list
+        sleeping_process->pNext = NULL;
+        sleeping_process->pPrev = NULL;
+        list->pTail = sleeping_process;
+        list->pHead = sleeping_process;
+        list->count++;
+        return 1;
+    }
+
+    // List has member(s)
+    else   
+    {
+        // Traverse the nodes
         process *current = list->pHead;
-        if (current != NULL)
+        while (current!=NULL)
         {
-            if (current->pid == pid)
+            // Compare first node's time left to sleep (sleepTime-sleepStartTime)
+            double timeLeft = current->sleepTime - current->sleepStartTime; // Get time left to sleep
+            if (sleeping_process->sleepTime < timeLeft)
             {
-                // Process is already in the list
-                return 0;
+                // If process to add has less time left, add it before this node
+                if (current->pPrev == NULL || current == list->pHead) // If existing sleeper was the head
+                {
+                    list->pHead = sleeping_process; // Make the list's head the new sleeper
+                }
+                sleeping_process->pPrev = current->pPrev;   // Set the new sleeper's previous link
+                current->pPrev = sleeping_process;          // Set the existing sleeper's previous link
+                sleeping_process->pNext = current;          // Set the new sleeper's next link
+                sleeping_process->pPrev->pNext = sleeping_process;  // Set the previous existing sleeper's next link
+                list->count++;
+                return 1;
             }
-            current = current->pNext; // Move to next process
+            current = current->pNext;   // Continue to the next node
         }
+        // If we get here, we must add our node to the tail
+        list->pTail->pNext = sleeping_process;
+        sleeping_process->pPrev = list->pTail;
+        list->pTail = sleeping_process;
+        return 1;
     }
-
-    // Update new waiting process's pointers
-    waiting_process->pNext = NULL;
-    waiting_process->pPrev = list->pTail;
-
-    // Update the previous tail's next pointer to new process
-    if (list->pTail != NULL)
-    {
-        list->pTail->pNext = waiting_process;
-    }
-
-    // New tail is the new process
-    list->pTail = waiting_process;
-
-    // If the list is empty, make new process the head
-    if (list->pHead == NULL)
-    {
-        list->pHead = waiting_process;
-    }
-
-    // Increment the list count
-    list->count++;
-
-    // Increment global number of sleeping processes if this is a sleeping process
-    if (waiting_process->sleepFlag == 1)
-    {
-        numSleepingProc++;
-    }
-
-   return 1;
 }
 
 /* ------------------------------------------------------------------------
