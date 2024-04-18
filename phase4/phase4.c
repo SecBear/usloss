@@ -268,6 +268,8 @@ DiskDriver(char *arg)
 
     num_tracks[unit] = trackCount;
     //more code 
+    
+    semv_real(running); // Signal start3 that we're running
     /*while (!is_zapped())
     {
 
