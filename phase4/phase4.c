@@ -258,7 +258,7 @@ DiskDriver(char *arg)
    my_request.opr  = DISK_TRACKS;
    my_request.reg1 = &num_tracks[unit];
 
-   result = device_output(DISK_DEV, unit, &my_request);
+   result = device_output(DISK_DEV, unit, &my_request); 
 
    if (result != DEV_OK) {
       console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
@@ -272,10 +272,10 @@ DiskDriver(char *arg)
 
 
     //more code 
-    //while (!is_zapped())
-    //{
+    while (!is_zapped())
+    {
 
-    //}
+    }
     return 0;
 }
 
