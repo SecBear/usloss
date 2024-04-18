@@ -220,7 +220,7 @@ int sleep_real(int seconds)
     process *current = &ProcTable[pid % MAXPROC];
 
     // process requests a delay for x seconds (how many microseconds in a second)
-    current->sleepFlag = 1;
+    current->status= STATUS_SLEEPING;
     current->sleepStartTime = (double)sys_clock() / 1000000;    // Store the time (in seconds) the process started sleeping
     current->sleepEndTime = current->sleepStartTime + seconds; // Store the time (in seconds) that the process should wake up
 
@@ -290,12 +290,14 @@ DiskDriver(char *arg)
 
 void syscall_disk_read(sysargs *args)
 {
+    // parse arguments
     char* buf = args->arg1;  // Input buffer
-    int unit = (int)args->arg5; // unit
+    int numSectors = (int)args->arg2;   // Number of sectors to read
+    int track = (int)args->arg3;        // First track to read
+    int firstSector = (int)args->arg4;  // First sector to read
+    int unit = (int)args->arg5;         // Disk unit
 
-
-
-    // parse arguments and call disk_read_real
+    // call disk_read_real
 
     
 }
@@ -482,9 +484,9 @@ int popList(list list)
     list->count--;
 
     // Decrement global count of sleeping processes and reset sleep flag if this is a sleeping process
-    if (poppedProc->sleepFlag == 1)
+    if (poppedProc->status == STATUS_SLEEPING)
     {
-        poppedProc->sleepFlag = 0;
+        poppedProc->status = 0;
         poppedProc->sleepStartTime = 0;
         poppedProc->sleepEndTime = 0;
         numSleepingProc--;

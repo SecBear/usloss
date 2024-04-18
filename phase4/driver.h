@@ -30,17 +30,12 @@ struct process {              // A process
    pProcess pPrev;            // Prev pointer
 
    int      pid;
-   int      parentPid;
-   int      (*entryPoint)(char *);  // Entry point
-   char     *name;                  // Name
    int      priority;               // Process's priority
    int      status;                 // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;            // Private mailbox ID
    int      startupMbox;            // Startup mailbox ID
-   int      termCode;               // Termination code
    double   sleepStartTime;         // Time the process went to sleep (for calculation)
    double   sleepEndTime;              // Number of seconds to sleep
-   int      sleepFlag;              // 0 is non-sleeping, 1 is sleeping
 
    list children;                   // Linked list of children processes
 };
@@ -50,3 +45,7 @@ struct list {        // List of processes
    pProcess pTail;   // Pointer to tail process
    int      count;   // Count of processes
 };
+
+/* Constants */
+#define STATUS_RUNNING 11
+#define STATUS_SLEEPING 12
