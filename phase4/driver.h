@@ -39,7 +39,7 @@ struct process {              // A process
    int      startupMbox;            // Startup mailbox ID
    int      termCode;               // Termination code
    double   sleepStartTime;         // Time the process went to sleep (for calculation)
-   double   sleepTime;              // Number of seconds to sleep
+   double   sleepEndTime;              // Number of seconds to sleep
    int      sleepFlag;              // 0 is non-sleeping, 1 is sleeping
 
    list children;                   // Linked list of children processes

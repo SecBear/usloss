@@ -89,7 +89,7 @@ start3(char *arg)
     } 
 
     // Initialize linked list of sleeping processes
-    list SleepingProcs = (list)malloc(sizeof(struct list));
+    SleepingProcs = (struct list *)malloc(sizeof(struct list));
     SleepingProcs->pHead = NULL;
     SleepingProcs->pTail = NULL;
     SleepingProcs->count = 0;
@@ -175,26 +175,17 @@ ClockDriver(char *arg)
     double curTime = (double)sys_clock();
     curTime = curTime / 1,000,000;              // Convert time (in microseconds) to seconds
     process *current = NULL;
-    if (SleepingProcs != NULL)
-    {
-        current = SleepingProcs->pHead;
-    }
-    int count = 1;
+    current = SleepingProcs->pHead;
     while (current != NULL)
     {
-        double sleepStartTime = current->sleepStartTime;   // Convert time to seconds
-        double timeSlept = curTime - sleepStartTime;       // Check how long process has slept for
-        if (timeSlept >= current->sleepTime)              // Check if we've slept the required time
+        double timeSlept = curTime - current->sleepEndTime;          // Check how long process has slept for
+        if (timeSlept >= 0)              // Check if we've slept the required time
         {
-            if (count != 1) // Debugging
-            {
-                printf("ERROR: ClockDriver: process to wake up was not first on list, need new popList function?\n");
-            }
             // Wake up process
             popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
             MboxCondSend(current->privateMbox, NULL, 0);
+            break;
         } 
-        count++;
         current = current->pNext;
     }
     }
@@ -219,8 +210,8 @@ int sleep_real(int seconds)
 
     // process requests a delay for x seconds (how many microseconds in a second)
     current->sleepFlag = 1;
-    current->sleepTime = seconds;
     current->sleepStartTime = (double)sys_clock() / 1,000,000;  // Store the time (in seconds) the process started sleeping
+    current->sleepEndTime = current->sleepStartTime + seconds; // Store the time (in seconds) that the process should wake up
 
     // process puts itself on a queue - process can block on it's own private mbox
     addSleepList(pid, SleepingProcs);   // Add process to the queue based on sleepTime
@@ -232,7 +223,14 @@ int sleep_real(int seconds)
         // compute current time and wake up any process whose time has come
 
     // After wakeup... check if been zapped?
-
+    if (is_zapped())
+    {
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 /* ----------------------- Disk ---------------------------------
@@ -271,10 +269,10 @@ DiskDriver(char *arg)
 
 
     //more code 
-    while (!is_zapped())
-    {
+    //while (!is_zapped())
+    //{
 
-    }
+    //}
     return 0;
 }
 
@@ -336,6 +334,7 @@ void check_kernel_mode(char string[])
 int addSleepList(int pid, list list)
 {
     process *sleeping_process = &ProcTable[pid % MAXPROC];  // Get process
+    sleeping_process->pid = pid;
 
     // Add process to mailbox's waiting list
     if (pid == NULL)
@@ -345,7 +344,7 @@ int addSleepList(int pid, list list)
     }
 
     // Is there a process on the list?
-    if (list == NULL)    // List is empty
+    if (list->pHead == NULL)    // List is empty
     {
         // Initialize this list
         sleeping_process->pNext = NULL;
@@ -364,10 +363,9 @@ int addSleepList(int pid, list list)
         while (current!=NULL)
         {
             // Compare first node's time left to sleep (sleepTime-sleepStartTime)
-            double timeLeft = current->sleepTime - current->sleepStartTime; // Get time left to sleep
-            if (sleeping_process->sleepTime < timeLeft)
+            if (sleeping_process->sleepEndTime < current->sleepEndTime)
             {
-                // If process to add has less time left, add it before this node
+                // If process to add will finish sooner, add it before this node
                 if (current->pPrev == NULL || current == list->pHead) // If existing sleeper was the head
                 {
                     list->pHead = sleeping_process; // Make the list's head the new sleeper
@@ -385,6 +383,7 @@ int addSleepList(int pid, list list)
         list->pTail->pNext = sleeping_process;
         sleeping_process->pPrev = list->pTail;
         list->pTail = sleeping_process;
+        list->count++;
         return 1;
     }
 }
@@ -444,7 +443,7 @@ int popList(list list)
     {
         poppedProc->sleepFlag = 0;
         poppedProc->sleepStartTime = 0;
-        poppedProc->sleepTime = 0;
+        poppedProc->sleepEndTime = 0;
         numSleepingProc--;
     }
 
