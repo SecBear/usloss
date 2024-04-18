@@ -8,11 +8,6 @@ typedef struct process *pProcess;
 typedef struct list *list;
 
 struct driver_proc {
-   driver_proc_ptr next_ptr;
-
-   int   wake_time;    /* for sleep syscall */
-   int   been_zapped;
-
 
    /* Used for disk requests */
    int   operation;    /* DISK_READ, DISK_WRITE, DISK_SEEK, DISK_TRACKS */
@@ -33,6 +28,7 @@ struct process {              // A process
    int      priority;               // Process's priority
    int      status;                 // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;            // Private mailbox ID
+   int      isZapped;               // Flag to measure if process has been zapped or not
 
    /* Sleep/Clock items */
    double   sleepStartTime;         // Time the process went to sleep (for calculation)
@@ -40,6 +36,7 @@ struct process {              // A process
    int      sleepSem;               // Semaphore used for sleeping synchronization
 
    /* Disk items */
+   struct driver_proc diskRequest;  // Process's disk request
 
 };
 
