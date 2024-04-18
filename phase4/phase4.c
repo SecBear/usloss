@@ -174,13 +174,12 @@ ClockDriver(char *arg)
         * Compute the current time and wake up any processes
         * whose time has come.
         */
-        double curTime = (double)sys_clock() / 1000000; // Convert time (in microseconds) to seconds
-
-        while (SleepingProcs->count > 0)
+        process *current = SleepingProcs->pHead; 
+        while (SleepingProcs->count > 0 && current != NULL)
         {
-            process *current = SleepingProcs->pHead;        
-            double timeSlept = curTime - current->sleepEndTime;          // Check how long process has slept for
-            if (timeSlept >= 0)              // Check if we've slept the required time
+            double curTime = (double)sys_clock() / 1000000; // Convert time (in microseconds) to seconds
+            double doneSleeping = curTime - current->sleepEndTime;          // Check how long process has slept for
+            if (doneSleeping >= 0)              // Check if we've slept the required time
             {
                 // Wake up process
                 popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
@@ -188,7 +187,7 @@ ClockDriver(char *arg)
             }
             else
             {
-                break;
+                current=current->pNext;
             } 
         }
     }
@@ -214,8 +213,7 @@ int sleep_real(int seconds)
 
     // process requests a delay for x seconds (how many microseconds in a second)
     current->sleepFlag = 1;
-    current->sleepStartTime = (double)sys_clock();
-    current->sleepStartTime = current->sleepStartTime / 1000000;  // Store the time (in seconds) the process started sleeping
+    current->sleepStartTime = (double)sys_clock() / 1000000;    // Store the time (in seconds) the process started sleeping
     current->sleepEndTime = current->sleepStartTime + seconds; // Store the time (in seconds) that the process should wake up
 
     // process puts itself on a queue - process can block on it's own private mbox
