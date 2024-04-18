@@ -31,8 +31,8 @@ process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
 
 static int diskpids[DISK_UNITS];
-static int num_tracks[DISK_UNITS];             // Array to store number of tracks for each disk unit
-static int diskSemaphores[DISK_UNITS];  // Array to hold the disk semaphores
+static int num_tracks[DISK_UNITS];              // Array to store number of tracks for each disk unit
+static int diskSemaphores[DISK_UNITS];          // Array to hold the disk semaphores
 
 int numSleepingProc;    // Global number of sleeping processes
 /* ------------------------------------------------------------------------ */
@@ -251,27 +251,27 @@ int sleep_real(int seconds)
 static int
 DiskDriver(char *arg)
 {
-   int unit = atoi(arg);
-   device_request my_request;
-   int result;
-   int status;
-   int trackCount;
+    int unit = atoi(arg);
+    device_request my_request;
+    int result;
+    int status;
+    int trackCount;
 
-   driver_proc_ptr current_req;
+    driver_proc_ptr current_req;
 
-   /* Get the number of tracks for this disk */
-   my_request.opr  = DISK_TRACKS;
-   my_request.reg1 = &trackCount;
+    /* Get the number of tracks for this disk */
+    my_request.opr  = DISK_TRACKS;
+    my_request.reg1 = &trackCount;
 
-   result = device_output(DISK_DEV, unit, &my_request); 
+    result = device_output(DISK_DEV, unit, &my_request); 
 
-   if (result != DEV_OK) {
-      console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
-      console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
-      halt(1);
-   }
+    if (result != DEV_OK) {
+        console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
+        console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
+        halt(1);
+    }
 
-   waitdevice(DISK_DEV, unit, &status);
+    waitdevice(DISK_DEV, unit, &status);
 
     num_tracks[unit] = trackCount;
     //more code 
@@ -291,7 +291,7 @@ DiskDriver(char *arg)
 void syscall_disk_read(sysargs *args)
 {
     // parse arguments
-    char* buf = args->arg1;  // Input buffer
+    char* buf = args->arg1;             // Input buffer
     int numSectors = (int)args->arg2;   // Number of sectors to read
     int track = (int)args->arg3;        // First track to read
     int firstSector = (int)args->arg4;  // First sector to read
@@ -299,7 +299,23 @@ void syscall_disk_read(sysargs *args)
 
     // call disk_read_real
 
-    
+    // Return to disk driver
+    semv_real(diskSemaphores[unit]);    
+
+}
+
+void syscall_disk_write(sysargs *args)
+{
+    // parse arguments
+    char* buf = args->arg1;             // Input buffer
+    int numSectors = (int)args->arg2;   // Number of sectors to read
+    int track = (int)args->arg3;        // First track to read
+    int firstSector = (int)args->arg4;  // First sector to read
+    int unit = (int)args->arg5;         // Disk unit
+
+    // call disk_write_real
+
+    // return to disk driver
 }
 
 void syscall_disk_size(sysargs *args)
