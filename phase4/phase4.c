@@ -149,8 +149,6 @@ start3(char *arg)
      */
     zap(clockPID);  // clock driver
     join(&status); /* for the Clock Driver */
-
-    // Shut down
 }
 
 
