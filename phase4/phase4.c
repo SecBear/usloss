@@ -16,6 +16,7 @@ static int	DiskDriver(char *);
 void syscall_sleep(sysargs *args);
 int sleep_real(int seconds);
 void syscall_disk_read(sysargs *args);
+void syscall_disk_size(sysargs *args);
 static void nullsys3(sysargs *args_ptr);
 int addSleepList(int pid, list list);
 int popList(list list);
@@ -70,7 +71,7 @@ start3(char *arg)
     sys_vec[SYS_SLEEP]     = syscall_sleep;
     sys_vec[SYS_DISKREAD] = syscall_disk_read;
     // disk write
-    // disk size
+    sys_vec[SYS_DISKSIZE] = syscall_disk_size; // disk size
     //more for this phase's system call handlings
 
 
@@ -247,16 +248,13 @@ DiskDriver(char *arg)
    device_request my_request;
    int result;
    int status;
+   int trackCount;
 
    driver_proc_ptr current_req;
 
-   if (DEBUG4 && debugflag4)
-      console("DiskDriver(%d): started\n", unit);
-    semv_real(running);
-
    /* Get the number of tracks for this disk */
    my_request.opr  = DISK_TRACKS;
-   my_request.reg1 = &num_tracks[unit];
+   my_request.reg1 = &trackCount;
 
    result = device_output(DISK_DEV, unit, &my_request); 
 
@@ -267,21 +265,43 @@ DiskDriver(char *arg)
    }
 
    waitdevice(DISK_DEV, unit, &status);
-   if (DEBUG4 && debugflag4)
-      console("DiskDriver(%d): tracks = %d\n", unit, num_tracks[unit]);
 
-
+    num_tracks[unit] = trackCount;
     //more code 
-    while (!is_zapped())
+    /*while (!is_zapped())
     {
 
-    }
+    }*/
     return 0;
 }
 
 void syscall_disk_read(sysargs *args)
 {
     // do something
+}
+
+void syscall_disk_size(sysargs *args)
+{
+    int unit = (int)args->arg1;
+    int sectorSize;
+    int sectorsPerTrack;
+    int trackCount;
+
+    // error checking
+    if (unit > 1 || unit < 0)
+    {
+        // return error
+    }
+
+    sectorSize = DISK_SECTOR_SIZE;
+    sectorsPerTrack = DISK_TRACK_SIZE;
+    trackCount = num_tracks[unit];
+
+    args->arg1 = (int)sectorSize;
+    args->arg2 = (int)sectorsPerTrack;
+    args->arg3 = (int)trackCount;
+    args->arg4 = (int)0; 
+
 }
 
 
