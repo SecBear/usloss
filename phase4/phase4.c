@@ -148,7 +148,7 @@ start3(char *arg)
      * Zap the device drivers
      */
     zap(clockPID);  // clock driver
-    join(&status); /* for the Clock Driver */
+    join(&status); /* for the Clock Driver */   // Deadlock occurs here
 }
 
 
@@ -286,6 +286,7 @@ DiskDriver(char *arg)
 
         // TODO: Check out and work on requests
     }
+
     return 0;
 }
 
@@ -397,6 +398,7 @@ int addSleepList(int pid, list list)
 {
     process *sleeping_process = &ProcTable[pid % MAXPROC];  // Get process
     sleeping_process->pid = pid;
+    int isHead;
 
     // Add process to mailbox's waiting list
     if (pid == NULL)
@@ -431,11 +433,15 @@ int addSleepList(int pid, list list)
                 if (current->pPrev == NULL || current == list->pHead) // If existing sleeper was the head
                 {
                     list->pHead = sleeping_process; // Make the list's head the new sleeper
+                    isHead = 1;
                 }
                 sleeping_process->pPrev = current->pPrev;   // Set the new sleeper's previous link
                 current->pPrev = sleeping_process;          // Set the existing sleeper's previous link
                 sleeping_process->pNext = current;          // Set the new sleeper's next link
-                sleeping_process->pPrev->pNext = sleeping_process;  // Set the previous existing sleeper's next link
+                if (!isHead)
+                {
+                    sleeping_process->pPrev->pNext = sleeping_process;  // Set the previous existing sleeper's next link
+                }
                 list->count++;
                 return 1;
             }
