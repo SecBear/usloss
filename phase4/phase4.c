@@ -31,7 +31,8 @@ process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
 
 static int diskpids[DISK_UNITS];
-int num_tracks[DISK_UNITS];         // Array to store number of tracks for each disk unit
+static int num_tracks[DISK_UNITS];             // Array to store number of tracks for each disk unit
+static int diskSemaphores[DISK_UNITS];  // Array to hold the disk semaphores
 
 int numSleepingProc;    // Global number of sleeping processes
 /* ------------------------------------------------------------------------ */
@@ -94,6 +95,12 @@ start3(char *arg)
     SleepingProcs->pHead = NULL;
     SleepingProcs->pTail = NULL;
     SleepingProcs->count = 0;
+
+    // Initialize disk semaphores
+    for (int i = 0; i < DISK_UNITS; ++i)
+    {
+        diskSemaphores[i] = semcreate_real(0);
+    }
 
     /*
      * Create clock device driver 
@@ -270,16 +277,27 @@ DiskDriver(char *arg)
     //more code 
     
     semv_real(running); // Signal start3 that we're running
-    /*while (!is_zapped())
-    {
 
-    }*/
+    while (!is_zapped()) 
+    {
+        // wait for a request
+        semp_real(diskSemaphores[unit]);
+
+        // TODO: Check out and work on requests
+    }
     return 0;
 }
 
 void syscall_disk_read(sysargs *args)
 {
-    // do something
+    char* buf = args->arg1;  // Input buffer
+    int unit = (int)args->arg5; // unit
+
+
+
+    // parse arguments and call disk_read_real
+
+    
 }
 
 void syscall_disk_size(sysargs *args)
