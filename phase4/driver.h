@@ -33,11 +33,14 @@ struct process {              // A process
    int      priority;               // Process's priority
    int      status;                 // Int to hold process status (Used, Unused, Ready, Not Ready, etc.)
    int      privateMbox;            // Private mailbox ID
-   int      startupMbox;            // Startup mailbox ID
-   double   sleepStartTime;         // Time the process went to sleep (for calculation)
-   double   sleepEndTime;              // Number of seconds to sleep
 
-   list children;                   // Linked list of children processes
+   /* Sleep/Clock items */
+   double   sleepStartTime;         // Time the process went to sleep (for calculation)
+   double   sleepEndTime;           // Number of seconds to sleep
+   int      sleepSem;               // Semaphore used for sleeping synchronization
+
+   /* Disk items */
+
 };
 
 struct list {        // List of processes

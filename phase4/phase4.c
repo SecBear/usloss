@@ -80,14 +80,9 @@ start3(char *arg)
     for (int i = 0; i < MAXPROC; ++i)
     {
         // Initialize mailboxes
-        ProcTable[i].startupMbox = MboxCreate(1, 0);    // Initialize startup mailboxes 
         ProcTable[i].privateMbox = MboxCreate(0,0);     // Initialize private mailboxes
-
-        // Initialize the children list
-        ProcTable[i].children = malloc(sizeof(struct list));
-        ProcTable[i].children->pHead = NULL;
-        ProcTable[i].children->pTail = NULL;
-        ProcTable[i].children->count = 0;
+        ProcTable[i].pid = i;
+        ProcTable[i].sleepSem = semcreate_real(0);
     } 
 
     // Initialize linked list of sleeping processes
@@ -154,6 +149,8 @@ start3(char *arg)
      */
     zap(clockPID);  // clock driver
     join(&status); /* for the Clock Driver */
+
+    // Shut down
 }
 
 
@@ -191,7 +188,9 @@ ClockDriver(char *arg)
             {
                 // Wake up process
                 popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
-                MboxCondSend(current->privateMbox, NULL, 0);
+                //MboxCondSend(current->privateMbox, NULL, 0);
+                semv_real(current->sleepSem);
+                break;
             }
             else
             {
@@ -212,6 +211,9 @@ void syscall_sleep(sysargs *args)
         return;
     }
     sleep_real(seconds);
+    args->arg4 = (int)0;
+    return;
+    
 }
 
 int sleep_real(int seconds)
@@ -227,7 +229,8 @@ int sleep_real(int seconds)
     // process puts itself on a queue - process can block on it's own private mbox
     addSleepList(pid, SleepingProcs);   // Add process to the queue based on sleepTime
 
-    MboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
+    //MboxReceive(current->privateMbox, NULL, 0); // Block on private mailbox
+    semp_real(current->sleepSem);   // Block on sleep semaphore
 
     // clock driver checks on each clock interrupt to see which process(es) to wake up
         // driver calls waitdevice to wait for interrupt handler
