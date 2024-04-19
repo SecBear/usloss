@@ -1,0 +1,5 @@
+List of things to do.
+
+- Figure out why pid 3 is not shutting down on terminate (deadlock).
+- Implement Disk Write
+- Implement Disk Read
