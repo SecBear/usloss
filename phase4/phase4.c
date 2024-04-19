@@ -26,7 +26,7 @@ int popList(list list);
    ----------------------------------------------------------------------- */
 static int running; /*semaphore to synchronize drivers and start3*/
 
-static struct driver_proc Driver_Table[MAXPROC];    // Driver Table
+//static struct driver_proc Driver_Table[MAXPROC];    // Driver Table
 process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
 
