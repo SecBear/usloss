@@ -149,6 +149,9 @@ start3(char *arg)
      */
     zap(clockPID);  // clock driver
     join(&status); /* for the Clock Driver */   // Deadlock occurs here
+    //zap(diskpids[0]);   // This results in termination...
+    //zap(diskpids[1]);
+    join(&status);
 }
 
 
