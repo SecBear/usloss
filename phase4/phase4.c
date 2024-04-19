@@ -149,8 +149,8 @@ start3(char *arg)
      */
     zap(clockPID);  // clock driver
     join(&status); /* for the Clock Driver */   // Deadlock occurs here
-    //zap(diskpids[0]);   // This results in termination...
-    //zap(diskpids[1]);
+    semv_real(diskSemaphores[0]);   // Wake up the disk drivers
+    semv_real(diskSemaphores[1]);
     join(&status);
 }
 
@@ -255,6 +255,7 @@ int sleep_real(int seconds)
 static int
 DiskDriver(char *arg)
 {
+    int pid = getpid();
     int unit = atoi(arg);
     device_request my_request;
     int result;
@@ -282,11 +283,11 @@ DiskDriver(char *arg)
     
     semv_real(running); // Signal start3 that we're running
 
-    while (!is_zapped()) 
+    while (ProcTable[pid].isZapped != 1) 
     {
         // wait for a request
         semp_real(diskSemaphores[unit]);
-
+        return 0;
         // TODO: Check out and work on requests
     }
 
@@ -321,6 +322,7 @@ void syscall_disk_write(sysargs *args)
     // call disk_write_real
 
     // return to disk driver
+    semv_real(diskSemaphores[unit]);
 }
 
 void syscall_disk_size(sysargs *args)
