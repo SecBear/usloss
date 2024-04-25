@@ -30,6 +30,7 @@ static int running; /*semaphore to synchronize drivers and start3*/
 process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
 
+
 static int diskpids[DISK_UNITS];
 static int num_tracks[DISK_UNITS];              // Array to store number of tracks for each disk unit
 static int diskSemaphores[DISK_UNITS];          // Array to hold the disk semaphores
@@ -163,6 +164,7 @@ ClockDriver(char *arg)
 {
     int result;
     int status;
+    int flag = 0;
 
     /*
      * Let the parent know we are running and enable interrupts.
@@ -189,12 +191,16 @@ ClockDriver(char *arg)
             {
                 // Wake up process
                 popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
-                //MboxCondSend(current->privateMbox, NULL, 0);
                 semv_real(current->sleepSem);
+                if (flag = 1)
+                {
+                    printf("ClockDriver: item was not first on list\n");
+                }
                 break;
             }
-            else
+            else    // TODO: remove this code 
             {
+                flag = 1;
                 current=current->pNext;
             } 
         }
@@ -459,6 +465,26 @@ int addSleepList(int pid, list list)
         list->count++;
         return 1;
     }
+}
+
+/* ------------------------------------------------------------------------
+   Name - addRequestList
+   Purpose - 
+   Parameters - 
+   Returns - 
+   Side Effects - 
+   ----------------------------------------------------------------------- */
+int addRequestList(list list)
+{
+    // Add item sorted for elevator algorithm
+
+    // If we have items
+    if (list->count > 0)
+    {
+        device_request
+    }
+    // Check if there's a head
+        // If there's a head, 
 }
 
 /* ------------------------------------------------------------------------
