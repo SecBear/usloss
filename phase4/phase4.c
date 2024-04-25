@@ -305,8 +305,8 @@ DiskDriver(char *arg)
 
 void syscall_disk_read(sysargs *args)
 {
-    pdisk_request request;   // Initialize disk request
-    int pid = getpid();
+    int pid = getpid(); // Get PID
+    pdisk_request request = &ProcTable[pid % MAXPROC].diskRequest;  // Store request in process's request
 
     // parse arguments
     request->disk_buf = args->arg1;             // Input buffer
@@ -315,19 +315,11 @@ void syscall_disk_read(sysargs *args)
     request->sector_start = (int)args->arg4;  // First sector to read
     request->unit = (int)args->arg5;         // Disk unit
 
-    // Add this request to this process's disk requests
-    //addRequestList(ProcTable[pid % MAXPROC].diskRequest);
+    // add this operation to the queue (disk driver will execute it)
+    addRequestList(DiskRequests, request);
 
-    // Which way to traverse?
-        // Find next request
-        // What operation are we doing? Do it
-            // GetNextSector (return array)
-            // perform operation on disk
-        // Remove request
-
-    // Return to disk driver
-    semv_real(diskSemaphores[request->unit]);    
-
+    // return to disk driver
+    semv_real(diskSemaphores[request->unit]); 
 }
 
 void syscall_disk_write(sysargs *args)
