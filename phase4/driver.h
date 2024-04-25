@@ -2,14 +2,16 @@
 #define debugflag4 2 // not sure what this is
 #pragma once
 
-typedef struct disk_request *disk_request;
+typedef struct disk_request *pdisk_request;
+typedef struct disk_request disk_request;
 typedef struct process process;
 typedef struct process *pProcess;
 typedef struct list *list;
+typedef struct request_list *request_list;
 
 struct disk_request {
-   disk_request pNext;
-   disk_request pPrev;
+   pdisk_request pNext;
+   pdisk_request pPrev;
 
    /* Used for disk requests */
    int   operation;    /* DISK_READ, DISK_WRITE, DISK_SEEK, DISK_TRACKS */
@@ -17,6 +19,7 @@ struct disk_request {
    int   sector_start;
    int   num_sectors;
    void *disk_buf;
+   int   unit;          // Disk unit to read
 
    //more fields to add
 
@@ -38,7 +41,7 @@ struct process {              // A process
    int      sleepSem;               // Semaphore used for sleeping synchronization
 
    /* Disk items */
-   struct disk_request diskRequest;  // Process's disk request
+   pdisk_request diskRequest;  // Process's disk request
 
 };
 
@@ -46,6 +49,12 @@ struct list {        // List of processes
    pProcess pHead;   // Pointer to head process
    pProcess pTail;   // Pointer to tail process
    int      count;   // Count of processes
+};
+
+struct request_list {
+   pdisk_request pHead;
+   pdisk_request pTail;
+   int          count;
 };
 
 /* Constants */

@@ -29,6 +29,7 @@ static int running; /*semaphore to synchronize drivers and start3*/
 //static struct driver_proc Driver_Table[MAXPROC];    // Driver Table
 process ProcTable[MAXPROC];                         // Process Table
 list SleepingProcs;                                 // Linked list of sleeping processes
+request_list DiskRequests;                                  // Linked list of disk requests
 
 
 static int diskpids[DISK_UNITS];
@@ -91,6 +92,12 @@ start3(char *arg)
     SleepingProcs->pHead = NULL;
     SleepingProcs->pTail = NULL;
     SleepingProcs->count = 0;
+
+    // Initialize linked list of disk requests
+    DiskRequests = (struct request_list *)malloc(sizeof(struct request_list));
+    DiskRequests->pHead = NULL;
+    DiskRequests->pTail = NULL;
+    DiskRequests->count = 0;
 
     // Initialize disk semaphores
     for (int i = 0; i < DISK_UNITS; ++i)
@@ -302,17 +309,28 @@ DiskDriver(char *arg)
 
 void syscall_disk_read(sysargs *args)
 {
-    // parse arguments
-    char* buf = args->arg1;             // Input buffer
-    int numSectors = (int)args->arg2;   // Number of sectors to read
-    int track = (int)args->arg3;        // First track to read
-    int firstSector = (int)args->arg4;  // First sector to read
-    int unit = (int)args->arg5;         // Disk unit
+    pdisk_request request;   // Initialize disk request
+    int pid = getpid();
 
-    // call disk_read_real
+    // parse arguments
+    request->disk_buf = args->arg1;             // Input buffer
+    request->num_sectors = (int)args->arg2;   // Number of sectors to read
+    request->track_start = (int)args->arg3;        // First track to read
+    request->sector_start = (int)args->arg4;  // First sector to read
+    request->unit = (int)args->arg5;         // Disk unit
+
+    // Add this request to this process's disk requests
+    //addRequestList(ProcTable[pid % MAXPROC].diskRequest);
+
+    // Which way to traverse?
+        // Find next request
+        // What operation are we doing? Do it
+            // GetNextSector (return array)
+            // perform operation on disk
+        // Remove request
 
     // Return to disk driver
-    semv_real(diskSemaphores[unit]);    
+    semv_real(diskSemaphores[request->unit]);    
 
 }
 
@@ -475,7 +493,7 @@ int addSleepList(int pid, list list)
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-int addRequestList(list list, disk_request request)
+int addRequestList(request_list list, pdisk_request request)
 {
     int isHead = 0;
 
@@ -499,7 +517,7 @@ int addRequestList(list list, disk_request request)
     else   
     {
         // Traverse the nodes
-        disk_request current = list->pHead;
+        pdisk_request current = list->pHead;
         while (current!=NULL)
         {
             // Compare start tracks
