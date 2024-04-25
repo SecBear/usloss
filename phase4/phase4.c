@@ -268,7 +268,7 @@ DiskDriver(char *arg)
     int status;
     int trackCount;
 
-    driver_proc_ptr current_req;
+    disk_request current_req;
 
     /* Get the number of tracks for this disk */
     my_request.opr  = DISK_TRACKS;
@@ -469,22 +469,91 @@ int addSleepList(int pid, list list)
 
 /* ------------------------------------------------------------------------
    Name - addRequestList
-   Purpose - 
+   Purpose - Adds the disk request to the request list, sorted from lowest 
+    track to highest track
    Parameters - 
    Returns - 
    Side Effects - 
    ----------------------------------------------------------------------- */
-int addRequestList(list list)
+int addRequestList(list list, disk_request request)
 {
-    // Add item sorted for elevator algorithm
+    int isHead = 0;
 
-    // If we have items
-    if (list->count > 0)
+    // Add item sorted for elevator algorithm
+    // Sort items from bottom of the disk to top of the disk, 
+        // Traverse list using pNext or pPrev according to the direction
+
+    // Is there a process on the list?
+    if (list->pHead == NULL)    // List is empty
     {
-        device_request
+        // Initialize this list
+        request->pNext = NULL;
+        request->pPrev = NULL;
+        list->pTail = request;
+        list->pHead = request;
+        list->count++;
+        return 1;
     }
-    // Check if there's a head
-        // If there's a head, 
+
+    // List has member(s)
+    else   
+    {
+        // Traverse the nodes
+        disk_request current = list->pHead;
+        while (current!=NULL)
+        {
+            // Compare start tracks
+            if (request->track_start < current->track_start)
+            {
+                // If request to add has a lower track
+                if (current->pPrev == NULL || current == list->pHead) // If existing request was the head
+                {
+                    list->pHead = request; // Make the list's head the new request
+                    isHead = 1;
+                }
+                request->pPrev = current->pPrev;   // Set the new request's previous link
+                current->pPrev = request;          // Set the existing request's previous link
+                request->pNext = current;          // Set the new request's next link
+                if (!isHead)
+                {
+                    request->pPrev->pNext = request;  // Set the previous existing request's next link
+                }
+                list->count++;
+                return 1;
+            }
+            // Check if track is the same
+            else if (request->track_start == current->track_start)
+            {
+                // Compare start sectors
+                if (request->sector_start < current->sector_start)
+                {
+                    // If request to add has a lower sector
+                    if (current->pPrev == NULL || current == list->pHead) // If existing request was the head
+                    {
+                        list->pHead = request; // Make the list's head the new request
+                        isHead = 1;
+                    }
+                    request->pPrev = current->pPrev;   // Set the new request's previous link
+                    current->pPrev = request;          // Set the existing request's previous link
+                    request->pNext = current;          // Set the new request's next link
+                    if (!isHead)
+                    {
+                        request->pPrev->pNext = request;  // Set the previous existing request's next link
+                    }
+                    list->count++;
+                    return 1;
+                }
+            }
+            current = current->pNext;   // Continue to the next node
+        }
+        // If we get here, we must add our node to the tail
+        list->pTail->pNext = request;
+        request->pPrev = list->pTail;
+        list->pTail = request;
+        list->count++;
+        return 1;
+    }
+
 }
 
 /* ------------------------------------------------------------------------

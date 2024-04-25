@@ -2,12 +2,14 @@
 #define debugflag4 2 // not sure what this is
 #pragma once
 
-typedef struct driver_proc * driver_proc_ptr;
+typedef struct disk_request *disk_request;
 typedef struct process process;
 typedef struct process *pProcess;
 typedef struct list *list;
 
-struct driver_proc {
+struct disk_request {
+   disk_request pNext;
+   disk_request pPrev;
 
    /* Used for disk requests */
    int   operation;    /* DISK_READ, DISK_WRITE, DISK_SEEK, DISK_TRACKS */
@@ -36,7 +38,7 @@ struct process {              // A process
    int      sleepSem;               // Semaphore used for sleeping synchronization
 
    /* Disk items */
-   struct driver_proc diskRequest;  // Process's disk request
+   struct disk_request diskRequest;  // Process's disk request
 
 };
 
