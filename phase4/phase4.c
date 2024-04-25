@@ -17,6 +17,7 @@ void syscall_sleep(sysargs *args);
 int sleep_real(int seconds);
 void syscall_disk_read(sysargs *args);
 void syscall_disk_size(sysargs *args);
+void syscall_disk_write(sysargs *args);
 static void nullsys3(sysargs *args_ptr);
 int addSleepList(int pid, list list);
 int popList(list list);
@@ -75,7 +76,8 @@ start3(char *arg)
     sys_vec[SYS_DISKREAD] = syscall_disk_read;
     // disk write
     sys_vec[SYS_DISKSIZE] = syscall_disk_size; // disk size
-    //more for this phase's system call handlings
+    sys_vec[SYS_DISKWRITE] = syscall_disk_write;
+    sys_vec[SYS_DISKREAD] = syscall_disk_read;
 
 
     /* Initialize the phase 4 process table */
