@@ -199,17 +199,17 @@ ClockDriver(char *arg)
                 // Wake up process
                 popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
                 semv_real(current->sleepSem);
-                if (flag = 1)
+                /*if (flag = 1)
                 {
                     printf("ClockDriver: item was not first on list\n");
-                }
+                }*/
                 break;
             }
-            else    // TODO: remove this code 
+            /*else    // TODO: remove this code 
             {
                 flag = 1;
                 current=current->pNext;
-            } 
+            }*/ 
         }
     }
     return 0;
