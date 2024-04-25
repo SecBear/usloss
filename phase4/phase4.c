@@ -294,6 +294,10 @@ DiskDriver(char *arg)
         semp_real(diskSemaphores[unit]);
         return 0;
         // TODO: Check out and work on requests
+            // Check for next operation from request list
+            // Do it
+            // Remove request from request list
+            // Next request
     }
 
     return 0;
@@ -328,17 +332,21 @@ void syscall_disk_read(sysargs *args)
 
 void syscall_disk_write(sysargs *args)
 {
-    // parse arguments
-    char* buf = args->arg1;             // Input buffer
-    int numSectors = (int)args->arg2;   // Number of sectors to read
-    int track = (int)args->arg3;        // First track to read
-    int firstSector = (int)args->arg4;  // First sector to read
-    int unit = (int)args->arg5;         // Disk unit
+    int pid = getpid(); // Get PID
+    pdisk_request request = &ProcTable[pid % MAXPROC].diskRequest;  // Store request in process's request
 
-    // call disk_write_real
+    // parse arguments
+    request->disk_buf = args->arg1;             // Input buffer
+    request->num_sectors = (int)args->arg2;   // Number of sectors to read
+    request->track_start = (int)args->arg3;        // First track to read
+    request->sector_start = (int)args->arg4;  // First sector to read
+    request->unit = (int)args->arg5;         // Disk unit
+
+    // add this operation to the queue (disk driver will execute it)
+    addRequestList(DiskRequests, request);
 
     // return to disk driver
-    semv_real(diskSemaphores[unit]);
+    semv_real(diskSemaphores[request->unit]);
 }
 
 void syscall_disk_size(sysargs *args)
