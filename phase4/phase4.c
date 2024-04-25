@@ -171,7 +171,6 @@ ClockDriver(char *arg)
 {
     int result;
     int status;
-    int flag = 0;
 
     /*
      * Let the parent know we are running and enable interrupts.
@@ -199,17 +198,8 @@ ClockDriver(char *arg)
                 // Wake up process
                 popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
                 semv_real(current->sleepSem);
-                /*if (flag = 1)
-                {
-                    printf("ClockDriver: item was not first on list\n");
-                }*/
                 break;
             }
-            /*else    // TODO: remove this code 
-            {
-                flag = 1;
-                current=current->pNext;
-            }*/ 
         }
     }
     return 0;
