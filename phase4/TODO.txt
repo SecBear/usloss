@@ -1,8 +1,7 @@
-List of things to do.
+What Happened:
 
-- Implement Disk Write
-- Implement Disk Read
+We ran out of time on this project. 
+We left off implementing Disk Read/Disk Write to pass test case 03. Clock driver is implemented and functioning correctly.
+Couldn't figure out the opr, reg1 and reg2 parameters for the different operations (Disk read vs. Disk write), which 
+	prevented us from completing those operations.
 
-To accomplish:
-- Watch Thursday office hour - disk arm algorithms
-    - Decide on algorithm and implement it
