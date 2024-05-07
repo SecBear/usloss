@@ -20,7 +20,7 @@ void syscall_disk_size(sysargs *args);
 void syscall_disk_write(sysargs *args);
 static void nullsys3(sysargs *args_ptr);
 int addSleepList(int pid, list list);
-int popList(list list);
+void* popList(list list, request_list requestList);
 
 /* ------------------------------------------------------------------------
    Global Variables
@@ -94,12 +94,14 @@ start3(char *arg)
     SleepingProcs->pHead = NULL;
     SleepingProcs->pTail = NULL;
     SleepingProcs->count = 0;
+    SleepingProcs->type = TYPE_LIST;
 
     // Initialize linked list of disk requests
     DiskRequests = (struct request_list *)malloc(sizeof(struct request_list));
     DiskRequests->pHead = NULL;
     DiskRequests->pTail = NULL;
     DiskRequests->count = 0;
+    DiskRequests->type = TYPE_REQUEST_LIST;
 
     // Initialize disk semaphores
     for (int i = 0; i < DISK_UNITS; ++i)
@@ -160,7 +162,7 @@ start3(char *arg)
     zap(clockPID);  // clock driver
     join(&status); /* for the Clock Driver */   // Deadlock occurs here
     semv_real(diskSemaphores[0]);   // Wake up the disk drivers
-    semv_real(diskSemaphores[1]);
+    semv_real(diskSemaphores[1]);   // Semv or semfree_real?
     join(&status);
 }
 
@@ -198,7 +200,7 @@ ClockDriver(char *arg)
             if (doneSleeping >= 0)              // Check if we've slept the required time
             {
                 // Wake up process
-                popList(SleepingProcs); // If the next process to wake up is not the head, we need to change this function to pop specific item
+                popList(SleepingProcs, NULL); // If the next process to wake up is not the head, we need to change this function to pop specific item
                 semv_real(current->sleepSem);
                 break;
             }
@@ -292,12 +294,53 @@ DiskDriver(char *arg)
     {
         // wait for a request
         semp_real(diskSemaphores[unit]);
-        return 0;
+
         // TODO: Check out and work on requests
-            // Check for next operation from request list
-            // Do it
-            // Remove request from request list
-            // Next request
+        // Get next request
+        pdisk_request pRequest = DiskRequests->pHead;
+
+        // Is this a valid request?
+        if (pRequest == NULL)
+        {
+
+        }
+
+        // move to correct track
+        my_request.opr  = DISK_SEEK;
+        my_request.reg1 = pRequest->track_start;
+        my_request.reg2 = pRequest->sector_start;
+
+        result = device_output(DISK_DEV, unit, &my_request); 
+
+        if (result != DEV_OK) {
+            console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
+            console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
+            halt(1);
+        }
+
+       waitdevice(DISK_DEV, unit, &status); // wait for some reason
+    
+
+        // we are at the right track, read sector
+        // TODO: READ SECTOR or write sector
+        my_request.opr = pRequest->operation;   // Set request operation
+        result = device_output(DISK_DEV, unit, &my_request); // Execute it
+
+        // Check it was good
+        if (result != DEV_OK) {
+                console("DiskDriver %d: did not get DEV_OK on DISK_TRACKS call\n", unit);
+                console("DiskDriver %d: is the file disk%d present???\n", unit, unit);
+                halt(1);
+            }
+        waitdevice(DISK_DEV, unit, &status); // wait for some reason
+
+        pRequest->num_sectors++;
+
+        // are we done with this request??
+        pRequest = (pdisk_request)popList(NULL, DiskRequests);
+
+
+        return 0;
     }
 
     return 0;
@@ -339,6 +382,9 @@ void syscall_disk_write(sysargs *args)
 
     // return to disk driver
     semv_real(diskSemaphores[request->unit]);
+
+    // did we have to seek?
+    semp_real(diskSemaphores[request->unit]);
 }
 
 void syscall_disk_size(sysargs *args)
@@ -570,60 +616,97 @@ int addRequestList(request_list list, pdisk_request request)
    Name - popList
    Purpose - Removes the first process from the list.
    Parameters - list - the list pointer to the list to pop the process off of.
-   Returns - 1 if a process is successfully removed, 0 if the waiting list is empty.
+   Returns - the process / request pointer if a process is successfully removed, 0 if the waiting list is empty.
    Side Effects - Decreases the count of waiting processes for the mailbox.
    ----------------------------------------------------------------------- */
-int popList(list list)
+void* popList(list list, request_list requestList)
 {
     check_kernel_mode("popWaitList\n");
+    process *poppedProc;
+    disk_request *diskRequest;
 
-    // Check if list is empty
-    if (list->count == 0)
+    if (list == NULL)   // Request List
     {
-        return NULL;
+
+        disk_request *poppedProc = requestList->pHead; // get the head of the list (oldest item)
+
+        // Check if this is the only item
+        if (requestList->count == 1)
+        {
+            requestList->pHead = NULL; // make head NULL
+            requestList->pTail = NULL; // make tail NULL
+            requestList->count--;      // decrement count
+            return poppedProc;           // return
+        }
+
+        // Update the head to the next process
+        requestList->pHead = poppedProc->pNext;           
+
+        // Update head/tail pointers
+        if (requestList->pHead == NULL)
+        {
+            requestList->pTail = NULL; // If the head becomes NULL (no more items), update the tail as well
+        }
+        else
+        {
+            requestList->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
+        }
+
+        // Update the popped process's pointers
+        if (poppedProc->pNext != NULL)
+        {
+            poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
+        }
+
+        // Decrement the count of processes in the list
+        requestList->count--;
+
+        return poppedProc;
     }
+    else    // Regular process
+    {   
+        process *poppedProc = list->pHead; // get the head of the list (oldest item)
 
-    // Get the oldest item and replace list's head
-    process *poppedProc = list->pHead; // get the head of the list (oldest item)
-    // Check if this is the only item
-    if (list->count == 1)
-    {
-        list->pHead = NULL; // make head NULL
-        list->pTail = NULL; // make tail NULL
-        list->count--;      // decrement count
-        return 1;           // return
+        // Check if this is the only item
+        if (list->count == 1)
+        {
+            list->pHead = NULL; // make head NULL
+            list->pTail = NULL; // make tail NULL
+            list->count--;      // decrement count
+            return 1;           // return
+        }
+
+        // Update the head to the next process
+        list->pHead = poppedProc->pNext;           
+
+        // Update head/tail pointers
+        if (list->pHead == NULL)
+        {
+            list->pTail = NULL; // If the head becomes NULL (no more items), update the tail as well
+        }
+        else
+        {
+            list->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
+        }
+
+        // Update the popped process's pointers
+        if (poppedProc->pNext != NULL)
+        {
+            poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
+        }
+
+        // Decrement the count of processes in the list
+        list->count--;
+
+        // Decrement global count of sleeping processes and reset sleep flag if this is a sleeping process
+        if (poppedProc->status == STATUS_SLEEPING)
+        {
+            poppedProc->status = 0;
+            poppedProc->sleepStartTime = 0;
+            poppedProc->sleepEndTime = 0;
+            numSleepingProc--;
+        }
+
+        return poppedProc;
     }
-
-    // Update the head to the next process
-    list->pHead = poppedProc->pNext;           
-
-    // Update head/tail pointers
-    if (list->pHead == NULL)
-    {
-        list->pTail = NULL; // If the head becomes NULL (no more items), update the tail as well
-    }
-    else
-    {
-        list->pHead->pPrev = NULL; // Update the new head's previous pointer to NULL
-    }
-
-    // Update the popped process's pointers
-    if (poppedProc->pNext != NULL)
-    {
-        poppedProc->pNext->pPrev = NULL; // Update the next process's previous pointer to NULL
-    }
-
-    // Decrement the count of processes in the list
-    list->count--;
-
-    // Decrement global count of sleeping processes and reset sleep flag if this is a sleeping process
-    if (poppedProc->status == STATUS_SLEEPING)
-    {
-        poppedProc->status = 0;
-        poppedProc->sleepStartTime = 0;
-        poppedProc->sleepEndTime = 0;
-        numSleepingProc--;
-    }
-
-    return 1;
 }

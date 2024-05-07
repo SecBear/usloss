@@ -49,14 +49,18 @@ struct list {        // List of processes
    pProcess pHead;   // Pointer to head process
    pProcess pTail;   // Pointer to tail process
    int      count;   // Count of processes
+   int      type;    // 0 = list, 1 = request list
 };
 
 struct request_list {
    pdisk_request pHead;
    pdisk_request pTail;
    int          count;
+   int           type;
 };
 
 /* Constants */
 #define STATUS_RUNNING 11
 #define STATUS_SLEEPING 12
+#define TYPE_REQUEST_LIST 13
+#define TYPE_LIST 14
