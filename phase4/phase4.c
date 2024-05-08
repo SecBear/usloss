@@ -302,7 +302,7 @@ DiskDriver(char *arg)
         // Is this a valid request?
         if (pRequest == NULL)
         {
-
+            return 0;
         }
 
         // move to correct track
